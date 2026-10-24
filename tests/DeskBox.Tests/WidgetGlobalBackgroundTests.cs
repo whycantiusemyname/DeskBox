@@ -230,7 +230,7 @@ public sealed class WidgetGlobalBackgroundTests
     public void GlobalBackground_IsWiredAcrossSchemaSettingsAndShell()
     {
         Assert.Contains(
-            "CurrentSchemaVersion = 15",
+            "CurrentSchemaVersion = 16",
             File.ReadAllText(TestPaths.FromRepository(
                 "src/DeskBox/Services/SettingsMigrationService.cs")),
             StringComparison.Ordinal);

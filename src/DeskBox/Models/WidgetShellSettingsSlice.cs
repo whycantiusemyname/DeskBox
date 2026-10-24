@@ -305,4 +305,19 @@ public sealed class WidgetShellSettingsSlice
     /// Windows-native DrawShadowText look). Default off.
     /// </summary>
     public bool WidgetTextShadowEnabled { get; set; }
+
+    /// <summary>
+    /// Source used to sample the desktop behind automatically contrasted file
+    /// names. Valid values are Auto, DesktopHost, and SystemWallpaper.
+    /// </summary>
+    public string WallpaperCaptureSource { get; set; } = "Auto";
+
+    /// <summary>
+    /// Window capture technique used when the source includes the live
+    /// desktop host. Valid values are Auto, FullWindow, and LegacyWindow.
+    /// </summary>
+    public string WallpaperHostCaptureMethod { get; set; } = "Auto";
+
+    /// <summary>Refresh cadence, in seconds, for desktop wallpaper capture.</summary>
+    public int WallpaperCaptureRefreshIntervalSeconds { get; set; } = 60;
 }

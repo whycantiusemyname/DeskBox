@@ -30,6 +30,139 @@ public sealed class WallpaperContrastPolicyTests
     }
 
     [Fact]
+    public void HostCandidatePolicy_AllowsGenericShellRenderersAndRejectsIconAndDeskBoxBranches()
+    {
+        var monitor = new WallpaperContrastRect(-1920, 0, 0, 1080);
+        var fullScreen = new WallpaperContrastRect(-1920, 0, 0, 1080);
+
+        Assert.True(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "WPEDesktopCEFWindow",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+        Assert.True(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "LivelyWallpaperDesktopChild",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 56,
+            deskBoxProcessId: 34));
+        Assert.False(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "SysListView32",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: true,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+        Assert.False(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "WorkerW",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: true,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+        Assert.False(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "WorkerW",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: true,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+        Assert.False(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "WorkerW",
+            fullScreen,
+            monitor,
+            isVisible: true,
+            isInDesktopShellTree: false,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+        Assert.False(WallpaperHostCapturePolicy.IsEligibleCandidate(
+            "WPEDesktopCEFWindow",
+            fullScreen,
+            monitor,
+            isVisible: false,
+            isInDesktopShellTree: true,
+            isInIconHostBranch: false,
+            hasIconHostDescendant: false,
+            hasDeskBoxDescendant: false,
+            windowProcessId: 12,
+            deskBoxProcessId: 34));
+    }
+
+    [Fact]
+    public void TryCreateScreenAlignedMap_CropsNegativeOriginAndPerMonitorWithoutWallpaperPlacement()
+    {
+        const int sourceWidth = 8;
+        const int sourceHeight = 2;
+        byte[] source = new byte[sourceWidth * sourceHeight * 4];
+        for (int y = 0; y < sourceHeight; y++)
+        for (int x = 0; x < sourceWidth; x++)
+        {
+            int index = ((y * sourceWidth) + x) * 4;
+            source[index] = (byte)(x * 10); // B
+            source[index + 1] = 0;
+            source[index + 2] = 0;
+            source[index + 3] = 255;
+        }
+
+        var virtualScreen = new WallpaperContrastRect(-4, 0, 4, 2);
+        var leftMonitor = new WallpaperContrastRect(-4, 0, 0, 2);
+        var rightMonitor = new WallpaperContrastRect(0, 0, 4, 2);
+
+        Assert.True(WallpaperHostCapturePolicy.TryCreateScreenAlignedMap(
+            source,
+            sourceWidth,
+            sourceHeight,
+            virtualScreen,
+            leftMonitor,
+            maxDimension: 192,
+            out WallpaperDynamicBitmap? left));
+        Assert.True(WallpaperHostCapturePolicy.TryCreateScreenAlignedMap(
+            source,
+            sourceWidth,
+            sourceHeight,
+            virtualScreen,
+            rightMonitor,
+            maxDimension: 192,
+            out WallpaperDynamicBitmap? right));
+        Assert.NotNull(left);
+        Assert.NotNull(right);
+        Assert.Equal(leftMonitor, left!.ScreenBounds);
+        Assert.Equal(rightMonitor, right!.ScreenBounds);
+        Assert.Equal(4, left.MapWidth);
+        Assert.Equal(4, right.MapWidth);
+        Assert.Equal((byte)0, left.BgraPixels[0]);
+        Assert.Equal((byte)30, left.BgraPixels[(left.MapWidth - 1) * 4]);
+        Assert.Equal((byte)40, right.BgraPixels[0]);
+        Assert.Equal((byte)70, right.BgraPixels[(right.MapWidth - 1) * 4]);
+    }
+
+    [Fact]
     public void SrgbLuminance_MapsBlackAndWhiteToEndpoints()
     {
         Assert.Equal(0d, WallpaperContrastPolicy.SrgbLuminance(0, 0, 0), 6);

@@ -193,7 +193,7 @@ public sealed class WidgetTextShadowContractTests
     public void Setting_TogglesThroughTheSchemaAndBothWindows()
     {
         Assert.Contains(
-            "CurrentSchemaVersion = 15",
+            "CurrentSchemaVersion = 16",
             File.ReadAllText(TestPaths.FromRepository(
                 "src/DeskBox/Services/SettingsMigrationService.cs")),
             StringComparison.Ordinal);

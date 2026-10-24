@@ -9,7 +9,7 @@ namespace DeskBox.Models;
 /// surface. Declaration order here defines the on-disk member order.
 /// </summary>
 /// <remarks>
-/// Batch 51 adjudication (schema-equivalent narrowing): the 220 passthrough
+/// Batch 51 adjudication (schema-equivalent narrowing): the passthrough
 /// properties below are the frozen settings.json wire contract, not removable
 /// facade weight. Serializing slice members directly was evaluated and
 /// rejected — the flat member order interleaves all 13 slices, and the one
@@ -824,4 +824,13 @@ public class AppSettings
 
     /// <inheritdoc cref="CloudBackupSettingsSlice.CloudBackupLastUnverifiedUtcTicks"/>
     public long CloudBackupLastUnverifiedUtcTicks { get => CloudBackup.CloudBackupLastUnverifiedUtcTicks; set => CloudBackup.CloudBackupLastUnverifiedUtcTicks = value; }
+
+    /// <inheritdoc cref="WidgetShellSettingsSlice.WallpaperCaptureSource"/>
+    public string WallpaperCaptureSource { get => WidgetShell.WallpaperCaptureSource; set => WidgetShell.WallpaperCaptureSource = value; }
+
+    /// <inheritdoc cref="WidgetShellSettingsSlice.WallpaperHostCaptureMethod"/>
+    public string WallpaperHostCaptureMethod { get => WidgetShell.WallpaperHostCaptureMethod; set => WidgetShell.WallpaperHostCaptureMethod = value; }
+
+    /// <inheritdoc cref="WidgetShellSettingsSlice.WallpaperCaptureRefreshIntervalSeconds"/>
+    public int WallpaperCaptureRefreshIntervalSeconds { get => WidgetShell.WallpaperCaptureRefreshIntervalSeconds; set => WidgetShell.WallpaperCaptureRefreshIntervalSeconds = value; }
 }

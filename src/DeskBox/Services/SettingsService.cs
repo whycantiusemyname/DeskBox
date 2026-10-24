@@ -1704,6 +1704,31 @@ settings.FocusClickedWidgetOnRaise = false;
         }
 
         changed |= WidgetForegroundSettings.NormalizeGlobal(settings);
+        WidgetShellSettingsSlice wallpaperShell = settings.WidgetShell;
+        string wallpaperSource = WallpaperCapturePreferenceKinds.NormalizeSource(
+            wallpaperShell.WallpaperCaptureSource);
+        if (!string.Equals(wallpaperShell.WallpaperCaptureSource, wallpaperSource, StringComparison.Ordinal))
+        {
+            wallpaperShell.WallpaperCaptureSource = wallpaperSource;
+            changed = true;
+        }
+
+        string wallpaperMethod = WallpaperCapturePreferenceKinds.NormalizeMethod(
+            wallpaperShell.WallpaperHostCaptureMethod);
+        if (!string.Equals(wallpaperShell.WallpaperHostCaptureMethod, wallpaperMethod, StringComparison.Ordinal))
+        {
+            wallpaperShell.WallpaperHostCaptureMethod = wallpaperMethod;
+            changed = true;
+        }
+
+        int wallpaperRefreshInterval = WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(
+            wallpaperShell.WallpaperCaptureRefreshIntervalSeconds);
+        if (wallpaperShell.WallpaperCaptureRefreshIntervalSeconds != wallpaperRefreshInterval)
+        {
+            wallpaperShell.WallpaperCaptureRefreshIntervalSeconds = wallpaperRefreshInterval;
+            changed = true;
+        }
+
         changed |= WidgetBackgroundCustomization.NormalizeGlobal(settings);
 
         if (settings.WidgetBorderColorMode is not (

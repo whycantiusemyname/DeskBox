@@ -6,6 +6,7 @@ public sealed partial class ContentWidgetWindow
 {
     protected override void OnCompactVisualStateChanged(bool collapsed)
     {
+        base.OnCompactVisualStateChanged(collapsed);
         if (collapsed)
         {
             App.Current?.WidgetManager?.CancelWidgetSurfaceSwitch(_config.Id);

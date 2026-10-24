@@ -103,6 +103,16 @@ public sealed class AppearanceSettingsCoordinator : IAppearanceSettings
             shell.WidgetForegroundColor);
     }
 
+    public AppearanceWallpaperCaptureSettings ReadWallpaperCapture()
+    {
+        WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
+        return new(
+            WallpaperCapturePreferenceKinds.NormalizeSource(shell.WallpaperCaptureSource),
+            WallpaperCapturePreferenceKinds.NormalizeMethod(shell.WallpaperHostCaptureMethod),
+            WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(
+                shell.WallpaperCaptureRefreshIntervalSeconds));
+    }
+
     public string ReadTrayIconStyle()
     {
         string style = _settings.Settings.Core.TrayIconStyle;
@@ -650,6 +660,33 @@ public sealed class AppearanceSettingsCoordinator : IAppearanceSettings
         WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
         if (shell.WidgetForegroundColor == colorHex) return;
         shell.WidgetForegroundColor = colorHex;
+    }
+
+    public void SetWallpaperCaptureSource(string? source)
+    {
+        ThrowIfStopped();
+        string normalized = WallpaperCapturePreferenceKinds.NormalizeSource(source);
+        WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
+        if (shell.WallpaperCaptureSource == normalized) return;
+        shell.WallpaperCaptureSource = normalized;
+    }
+
+    public void SetWallpaperHostCaptureMethod(string? method)
+    {
+        ThrowIfStopped();
+        string normalized = WallpaperCapturePreferenceKinds.NormalizeMethod(method);
+        WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
+        if (shell.WallpaperHostCaptureMethod == normalized) return;
+        shell.WallpaperHostCaptureMethod = normalized;
+    }
+
+    public void SetWallpaperCaptureRefreshIntervalSeconds(int seconds)
+    {
+        ThrowIfStopped();
+        int normalized = WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(seconds);
+        WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
+        if (shell.WallpaperCaptureRefreshIntervalSeconds == normalized) return;
+        shell.WallpaperCaptureRefreshIntervalSeconds = normalized;
     }
 
     private static double Normalize(double value, double step, double min, double max) =>

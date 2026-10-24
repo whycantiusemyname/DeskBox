@@ -138,6 +138,43 @@ public static class WidgetForegroundKinds
     }
 }
 
+/// <summary>
+/// Canonical user-facing preferences for capturing the wallpaper used by
+/// automatic file-name contrast. These are persisted strings so the settings
+/// facade remains source-generated and forward-compatible.
+/// </summary>
+public static class WallpaperCapturePreferenceKinds
+{
+    public const string SourceAuto = "Auto";
+    public const string SourceDesktopHost = "DesktopHost";
+    public const string SourceSystemWallpaper = "SystemWallpaper";
+
+    public const string MethodAuto = "Auto";
+    public const string MethodFullWindow = "FullWindow";
+    public const string MethodLegacyWindow = "LegacyWindow";
+
+    public const int DefaultRefreshIntervalSeconds = 60;
+    public const int MinRefreshIntervalSeconds = 10;
+    public const int MaxRefreshIntervalSeconds = 3600;
+
+    public static string NormalizeSource(string? source) =>
+        string.Equals(source, SourceDesktopHost, StringComparison.OrdinalIgnoreCase)
+            ? SourceDesktopHost
+            : string.Equals(source, SourceSystemWallpaper, StringComparison.OrdinalIgnoreCase)
+                ? SourceSystemWallpaper
+                : SourceAuto;
+
+    public static string NormalizeMethod(string? method) =>
+        string.Equals(method, MethodFullWindow, StringComparison.OrdinalIgnoreCase)
+            ? MethodFullWindow
+            : string.Equals(method, MethodLegacyWindow, StringComparison.OrdinalIgnoreCase)
+                ? MethodLegacyWindow
+                : MethodAuto;
+
+    public static int NormalizeRefreshIntervalSeconds(int seconds) =>
+        Math.Clamp(seconds, MinRefreshIntervalSeconds, MaxRefreshIntervalSeconds);
+}
+
 /// <summary>The seven projected fields a layout-density preset writes.</summary>
 public readonly record struct LayoutDensityPresetValues(
     double IconSize,
@@ -413,6 +450,11 @@ public readonly record struct AppearanceWidgetBackgroundSettings(
     double DimPercent,
     string UnifiedFit);
 
+public readonly record struct AppearanceWallpaperCaptureSettings(
+    string Source,
+    string Method,
+    int RefreshIntervalSeconds);
+
 /// <summary>
 /// Settings-page writes for the appearance section: material, density,
 /// typography, default widget size, window chrome, animation, foreground and
@@ -428,6 +470,7 @@ public interface IAppearanceSettings
     AppearanceWindowChromeSettings ReadWindowChrome();
     AppearanceAnimationSettings ReadAnimation();
     AppearanceForegroundSettings ReadForeground();
+    AppearanceWallpaperCaptureSettings ReadWallpaperCapture();
 
     /// <summary>Normalized tray icon style for the editor's read projection.</summary>
     string ReadTrayIconStyle();
@@ -470,6 +513,9 @@ public interface IAppearanceSettings
 
     void SetWidgetForegroundMode(string? mode);
     void SetWidgetForegroundColor(string colorHex);
+    void SetWallpaperCaptureSource(string? source);
+    void SetWallpaperHostCaptureMethod(string? method);
+    void SetWallpaperCaptureRefreshIntervalSeconds(int seconds);
 
     AppearanceWidgetBackgroundSettings ReadWidgetBackground();
     void SetWidgetBackgroundMode(string? mode);

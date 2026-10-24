@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Diagnostics;
 using DeskBox.Platform;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
@@ -14,7 +13,10 @@ namespace DeskBox.Services;
 /// </summary>
 internal static class WallpaperContrastService
 {
+    private static readonly TimeSpan s_captureWorkerTimeout = TimeSpan.FromSeconds(12);
     private static readonly object s_gate = new();
+    private static readonly object s_optionsGate = new();
+    private static readonly object s_captureWorkerGate = new();
     private static readonly Dictionary<string, CachedBitmap> s_bitmapCache =
         new(StringComparer.OrdinalIgnoreCase);
     private static WallpaperSnapshot? s_snapshot;
@@ -23,6 +25,11 @@ internal static class WallpaperContrastService
     private static Task? s_refreshWorker;
     private static int s_clients;
     private static string? s_lastRefreshError;
+    private static WallpaperCaptureOptions s_captureOptions = new();
+    private static long s_captureOptionsVersion;
+    private static TaskCompletionSource s_captureOptionsChanged =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static CaptureWorker? s_captureWorker;
 
     public static IDisposable Acquire()
     {
@@ -44,6 +51,31 @@ internal static class WallpaperContrastService
         App.Log($"[WallpaperContrast] client acquired clients={clients}, workerStarted={started}");
 
         return new ClientLease();
+    }
+
+    public static void ConfigureCaptureOptions(WallpaperCaptureOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        WallpaperCaptureOptions normalized = options.Normalize();
+        TaskCompletionSource changed;
+        lock (s_optionsGate)
+        {
+            WallpaperCaptureOptions current = Volatile.Read(ref s_captureOptions);
+            if (current == normalized)
+            {
+                return;
+            }
+
+            Volatile.Write(ref s_captureOptions, normalized);
+            Interlocked.Increment(ref s_captureOptionsVersion);
+            changed = s_captureOptionsChanged;
+            s_captureOptionsChanged = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        changed.TrySetResult();
+        App.Log($"[WallpaperContrast] capture options source={normalized.Source}, " +
+            $"method={normalized.Method}, intervalSeconds={normalized.RefreshIntervalSeconds}");
     }
 
     public static string GetDiagnosticStatus()
@@ -78,10 +110,37 @@ internal static class WallpaperContrastService
     {
         try
         {
+            long observedOptionsVersion = Volatile.Read(ref s_captureOptionsVersion);
             await TryRefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                long currentOptionsVersion = Volatile.Read(ref s_captureOptionsVersion);
+                if (currentOptionsVersion != observedOptionsVersion)
+                {
+                    observedOptionsVersion = currentOptionsVersion;
+                    await TryRefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                WallpaperCaptureOptions options = Volatile.Read(ref s_captureOptions);
+                Task delay = Task.Delay(
+                    TimeSpan.FromSeconds(options.RefreshIntervalSeconds),
+                    cancellationToken);
+                Task optionsChanged = GetOptionsChangedTask();
+                if (Volatile.Read(ref s_captureOptionsVersion) != observedOptionsVersion)
+                {
+                    continue;
+                }
+
+                await Task.WhenAny(delay, optionsChanged).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                currentOptionsVersion = Volatile.Read(ref s_captureOptionsVersion);
+                if (currentOptionsVersion != observedOptionsVersion)
+                {
+                    observedOptionsVersion = currentOptionsVersion;
+                }
+
                 await TryRefreshSnapshotAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -103,6 +162,125 @@ internal static class WallpaperContrastService
         }
     }
 
+    private static Task GetOptionsChangedTask()
+    {
+        lock (s_optionsGate)
+        {
+            return s_captureOptionsChanged.Task;
+        }
+    }
+
+    private static async Task<WallpaperHostCaptureResult> CaptureHostFramesAsync(
+        IReadOnlyList<WallpaperContrastRect> monitorBounds,
+        WallpaperCaptureOptions options,
+        CancellationToken cancellationToken)
+    {
+        CaptureWorker worker;
+        bool consumeCompletedWorker;
+        lock (s_captureWorkerGate)
+        {
+            if (s_captureWorker is { Task.IsCompleted: false })
+            {
+                return new WallpaperHostCaptureResult(
+                    "capture-busy",
+                    new Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap>(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    string.Empty);
+            }
+
+            if (s_captureWorker is { } completed &&
+                completed.Source == options.Source &&
+                completed.Method == options.Method &&
+                completed.MonitorBounds.SequenceEqual(monitorBounds))
+            {
+                worker = completed;
+                consumeCompletedWorker = true;
+                s_captureWorker = null;
+            }
+            else
+            {
+                WallpaperContrastRect[] bounds = monitorBounds.ToArray();
+                worker = new CaptureWorker(
+                    options.Source,
+                    options.Method,
+                    bounds,
+                    Task.Run(() => WallpaperHostCaptureBackend.Capture(bounds, options.Method)));
+                s_captureWorker = worker;
+                consumeCompletedWorker = false;
+            }
+        }
+
+        try
+        {
+            if (!consumeCompletedWorker)
+            {
+                await worker.Task.WaitAsync(s_captureWorkerTimeout, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            WallpaperHostCaptureResult result = await worker.Task.ConfigureAwait(false);
+            lock (s_captureWorkerGate)
+            {
+                if (ReferenceEquals(s_captureWorker, worker))
+                {
+                    s_captureWorker = null;
+                }
+            }
+
+            return result;
+        }
+        catch (TimeoutException)
+        {
+            return new WallpaperHostCaptureResult(
+                "capture-timeout",
+                new Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap>(),
+                0,
+                0,
+                0,
+                (long)s_captureWorkerTimeout.TotalMilliseconds,
+                string.Empty);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (worker.Task.IsCompleted)
+            {
+                lock (s_captureWorkerGate)
+                {
+                    if (ReferenceEquals(s_captureWorker, worker))
+                    {
+                        s_captureWorker = null;
+                    }
+                }
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            App.Log($"[WallpaperContrast] host capture worker failed " +
+                $"exception={ex.GetType().Name}/0x{unchecked((uint)ex.HResult):X8}");
+            lock (s_captureWorkerGate)
+            {
+                if (ReferenceEquals(s_captureWorker, worker))
+                {
+                    s_captureWorker = null;
+                }
+            }
+
+            return new WallpaperHostCaptureResult(
+                "capture-failed",
+                new Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap>(),
+                0,
+                0,
+                0,
+                0,
+                string.Empty);
+        }
+    }
+
     private static async Task TryRefreshSnapshotAsync(
         CancellationToken cancellationToken)
     {
@@ -121,7 +299,7 @@ internal static class WallpaperContrastService
             string error = $"{ex.GetType().Name}/0x{unchecked((uint)ex.HResult):X8}";
             Volatile.Write(ref s_lastRefreshError, error);
             App.Log($"[WallpaperContrast] refresh failed error={error}, " +
-                $"snapshot={SnapshotVersion}; retry=60s");
+                $"snapshot={SnapshotVersion}; retry={Volatile.Read(ref s_captureOptions).RefreshIntervalSeconds}s");
         }
     }
 
@@ -136,22 +314,51 @@ internal static class WallpaperContrastService
             {
                 Volatile.Write(ref s_lastRefreshError, "desktop-wallpaper-source-unavailable");
                 App.Log($"[WallpaperContrast] refresh produced no snapshot; " +
-                    $"snapshot={SnapshotVersion}; retry=60s");
+                    $"snapshot={SnapshotVersion}; retry={Volatile.Read(ref s_captureOptions).RefreshIntervalSeconds}s");
             }
             return;
         }
 
+        WallpaperCaptureOptions captureOptions = Volatile.Read(ref s_captureOptions);
         WallpaperSnapshot? previousSnapshot = Volatile.Read(ref s_snapshot);
+        WallpaperHostCaptureResult hostCapture = captureOptions.Source == WallpaperContrastSource.SystemWallpaper
+            ? WallpaperHostCaptureResult.Disabled
+            : await CaptureHostFramesAsync(
+                data.Monitors.Select(monitor => monitor.Bounds).ToArray(),
+                captureOptions,
+                cancellationToken).ConfigureAwait(false);
         var monitors = new List<WallpaperMonitor>(data.Monitors.Count);
         foreach (WallpaperMonitorData monitor in data.Monitors)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            WallpaperDynamicBitmap? dynamicBitmap = null;
+            bool hasCurrentHostCapture = hostCapture.Maps.TryGetValue(
+                monitor.Bounds,
+                out WallpaperDynamicBitmap? capturedBitmap);
+            if (hasCurrentHostCapture)
+            {
+                dynamicBitmap = capturedBitmap;
+            }
+            else if (hostCapture.Status is not "no-host" and not "disabled" &&
+                     previousSnapshot?.FindReusableDynamicMonitor(
+                         monitor.Bounds,
+                         captureOptions.Source,
+                         captureOptions.Method) is { } previousDynamic)
+            {
+                // Preserve the last good host frame across a transient capture
+                // failure, timeout or still-running PrintWindow worker.
+                dynamicBitmap = previousDynamic;
+            }
+
             WallpaperBitmap? bitmap = null;
             bool imagePathWasPresent = !string.IsNullOrWhiteSpace(monitor.ImagePath);
             string? imageIdentity = imagePathWasPresent
                 ? GetBitmapCacheKey(monitor.ImagePath!)
                 : null;
-            if (imagePathWasPresent)
+            bool sourceUsesStaticFallback =
+                captureOptions.Source == WallpaperContrastSource.SystemWallpaper ||
+                (captureOptions.Source == WallpaperContrastSource.Auto && dynamicBitmap is null);
+            if (imagePathWasPresent && sourceUsesStaticFallback)
             {
                 bitmap = await GetOrDecodeBitmapAsync(monitor.ImagePath!, cancellationToken)
                     .ConfigureAwait(false);
@@ -174,7 +381,11 @@ internal static class WallpaperContrastService
                 monitor.ImagePath,
                 imageIdentity,
                 bitmap,
-                imagePathWasPresent && bitmap is null));
+                dynamicBitmap,
+                captureOptions.Source,
+                captureOptions.Method,
+                (imagePathWasPresent && sourceUsesStaticFallback && bitmap is null) ||
+                    (captureOptions.Source == WallpaperContrastSource.DesktopHost && dynamicBitmap is null)));
         }
 
         if (monitors.Count > 0 && !cancellationToken.IsCancellationRequested)
@@ -190,10 +401,19 @@ internal static class WallpaperContrastService
                 $"{monitor.Bounds.Left:F0},{monitor.Bounds.Top:F0}-" +
                 $"{monitor.Bounds.Right:F0},{monitor.Bounds.Bottom:F0}:" +
                 $"{(string.IsNullOrWhiteSpace(monitor.ImagePath) ? "background" : "image" + SafeExtension(monitor.ImagePath))}"));
-            string engine = DetectWallpaperEngine() ? "WallpaperEngine-detected" : "none-detected";
-            App.Log($"[WallpaperContrast] snapshot version={snapshot.Version}, source=IDesktopWallpaper, " +
+            int dynamicMonitorCount = monitors.Count(monitor => monitor.DynamicBitmap is not null);
+            string pixelSource = dynamicMonitorCount == 0
+                ? "IDesktopWallpaper"
+                : dynamicMonitorCount < monitors.Count && captureOptions.Source == WallpaperContrastSource.Auto
+                    ? "DesktopHostPrintWindow+IDesktopWallpaper"
+                    : "DesktopHostPrintWindow";
+            App.Log($"[WallpaperContrast] snapshot version={snapshot.Version}, source={pixelSource}, " +
                 $"position={data.Position}, monitors={data.Monitors.Count}/{data.ReportedMonitorCount}[{monitorSummary}], " +
-                $"dynamicWallpaper={engine}, sampling=static-source-only");
+                $"hostCapture={hostCapture.Status}, hosts={hostCapture.HostCount}, " +
+                $"attempts={hostCapture.PrintWindowAttempts}, rendered={hostCapture.RenderedWindowCount}, " +
+                $"elapsedMs={hostCapture.ElapsedMilliseconds}, captures=[{hostCapture.CaptureSummary}], " +
+                $"captureOptions={captureOptions.Source}/{captureOptions.Method}, " +
+                $"sampling={(dynamicMonitorCount > 0 ? "screen-aligned-host-map" : captureOptions.Source == WallpaperContrastSource.DesktopHost ? "host-only-unavailable" : "static-source-or-unavailable")}");
         }
         else if (monitors.Count == 0)
         {
@@ -395,27 +615,6 @@ internal static class WallpaperContrastService
         }
     }
 
-    private static bool DetectWallpaperEngine()
-    {
-        foreach (string processName in new[] { "wallpaper64", "webwallpaper64" })
-        {
-            try
-            {
-                Process[] processes = Process.GetProcessesByName(processName);
-                bool found = processes.Length > 0;
-                foreach (Process process in processes) process.Dispose();
-                if (found) return true;
-            }
-            catch
-            {
-                // Process inspection is optional; the Windows wallpaper API
-                // remains the authoritative supported static source.
-            }
-        }
-
-        return false;
-    }
-
     private static async Task<WallpaperBitmap?> GetOrDecodeBitmapAsync(
         string path,
         CancellationToken cancellationToken)
@@ -555,6 +754,12 @@ internal static class WallpaperContrastService
         }
     }
 
+    private sealed record CaptureWorker(
+        WallpaperContrastSource Source,
+        WallpaperHostCaptureMethod Method,
+        WallpaperContrastRect[] MonitorBounds,
+        Task<WallpaperHostCaptureResult> Task);
+
     private sealed class CachedBitmap(WallpaperBitmap bitmap, DateTime lastUsedUtc)
     {
         public WallpaperBitmap Bitmap { get; } = bitmap;
@@ -573,6 +778,9 @@ internal static class WallpaperContrastService
         string? ImagePath,
         string? ImageIdentity,
         WallpaperBitmap? Bitmap,
+        WallpaperDynamicBitmap? DynamicBitmap,
+        WallpaperContrastSource CaptureSource,
+        WallpaperHostCaptureMethod CaptureMethod,
         bool HasUnsupportedImage);
 
     private sealed record WallpaperMonitorData(
@@ -625,6 +833,25 @@ internal static class WallpaperContrastService
             return null;
         }
 
+        public WallpaperDynamicBitmap? FindReusableDynamicMonitor(
+            WallpaperContrastRect bounds,
+            WallpaperContrastSource source,
+            WallpaperHostCaptureMethod method)
+        {
+            foreach (WallpaperMonitor monitor in monitors)
+            {
+                if (monitor.DynamicBitmap is not null &&
+                    monitor.Bounds == bounds &&
+                    monitor.CaptureSource == source &&
+                    monitor.CaptureMethod == method)
+                {
+                    return monitor.DynamicBitmap;
+                }
+            }
+
+            return null;
+        }
+
         public bool TrySampleLuminance(
             WallpaperContrastRect screenBounds,
             out double luminance)
@@ -641,7 +868,14 @@ internal static class WallpaperContrastService
                 if (monitor.HasUnsupportedImage) return false;
 
                 double average;
-                if (monitor.Bitmap is { } bitmap)
+                if (monitor.DynamicBitmap is { } dynamicBitmap)
+                {
+                    if (!WallpaperHostCapturePolicy.TryAverageScreenAlignedLuminance(
+                            dynamicBitmap,
+                            intersection,
+                            out average)) return false;
+                }
+                else if (monitor.Bitmap is { } bitmap)
                 {
                     if (!WallpaperContrastPolicy.TryAveragePlacedLuminance(
                             bitmap.BgraPixels,

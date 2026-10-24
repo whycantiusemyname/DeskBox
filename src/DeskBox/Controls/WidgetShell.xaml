@@ -82,6 +82,43 @@
             PointerReleased="TitleBarGrid_PointerReleased"
             PointerCaptureLost="TitleBarGrid_PointerCaptureLost"
             RightTapped="TitleBarGrid_RightTapped">
+            <Grid.Resources>
+                <!-- Header-scoped semantic brushes. The automatic wallpaper
+                     palette mutates these in place while body content keeps
+                     using the window-root palette. -->
+                <SolidColorBrush x:Key="WidgetHeaderPrimaryBrush" Color="#FFF5F5F5" />
+                <SolidColorBrush x:Key="WidgetHeaderSecondaryBrush" Color="#E8FFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderTertiaryBrush" Color="#CCFFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderDisabledBrush" Color="#8FFFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderDividerBrush" Color="#66FFFFFF" />
+                <StaticResource x:Key="TextFillColorPrimaryBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextFillColorSecondaryBrush" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextFillColorTertiaryBrush" ResourceKey="WidgetHeaderTertiaryBrush" />
+                <StaticResource x:Key="TextFillColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="ControlStrongFillColorDefaultBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ControlStrongFillColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="ControlStrongStrokeColorDefaultBrush" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="ControlStrongStrokeColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="DividerStrokeColorDefaultBrush" ResourceKey="WidgetHeaderDividerBrush" />
+                <StaticResource x:Key="DefaultTextForegroundThemeBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="WidgetDragHandleBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="ButtonForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="SubtleButtonForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundPressed" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+            </Grid.Resources>
             <ContentPresenter
                 x:Name="CustomTitleBarContentPresenter"
                 HorizontalAlignment="Stretch"
@@ -116,6 +153,7 @@
                         <TextBlock
                             x:Name="TitleText"
                             FontSize="{Binding TitleTextSize}"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                             Text="{Binding DisplayName}"
                             TextTrimming="CharacterEllipsis"
                             VerticalAlignment="Center" />
@@ -257,6 +295,40 @@
             PointerReleased="OverlayDragHandle_PointerReleased"
             RightTapped="CollapsedChromeLayer_RightTapped"
             SizeChanged="CollapsedChromeLayer_SizeChanged">
+            <Grid.Resources>
+                <SolidColorBrush x:Key="WidgetHeaderPrimaryBrush" Color="#FFF5F5F5" />
+                <SolidColorBrush x:Key="WidgetHeaderSecondaryBrush" Color="#E8FFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderTertiaryBrush" Color="#CCFFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderDisabledBrush" Color="#8FFFFFFF" />
+                <SolidColorBrush x:Key="WidgetHeaderDividerBrush" Color="#66FFFFFF" />
+                <StaticResource x:Key="TextFillColorPrimaryBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextFillColorSecondaryBrush" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextFillColorTertiaryBrush" ResourceKey="WidgetHeaderTertiaryBrush" />
+                <StaticResource x:Key="TextFillColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="ControlStrongFillColorDefaultBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ControlStrongFillColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="ControlStrongStrokeColorDefaultBrush" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="ControlStrongStrokeColorDisabledBrush" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="DividerStrokeColorDefaultBrush" ResourceKey="WidgetHeaderDividerBrush" />
+                <StaticResource x:Key="DefaultTextForegroundThemeBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="TextControlForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="TextControlPlaceholderForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="WidgetDragHandleBrush" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="ButtonForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+                <StaticResource x:Key="SubtleButtonForeground" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundPointerOver" ResourceKey="WidgetHeaderPrimaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundPressed" ResourceKey="WidgetHeaderSecondaryBrush" />
+                <StaticResource x:Key="SubtleButtonForegroundDisabled" ResourceKey="WidgetHeaderDisabledBrush" />
+            </Grid.Resources>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -556,6 +628,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="12.5"
                                 FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                 MaxLines="1"
                                 TextWrapping="NoWrap"
                                 TextTrimming="CharacterEllipsis" />
@@ -565,6 +638,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="12.5"
                                 FontWeight="SemiBold"
+                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                 MaxLines="1"
                                 TextWrapping="NoWrap"
                                 TextTrimming="Clip"

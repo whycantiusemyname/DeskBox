@@ -1,4 +1,5 @@
 using DeskBox.Helpers;
+using DeskBox.Contracts;
 using DeskBox.Models;
 using DeskBox.Platform;
 using DeskBox.Services;
@@ -39,6 +40,29 @@ public sealed partial class FileSurfaceContent
             DispatcherQueue.TryEnqueue(UpdateAdaptiveFilenameContrast);
             return;
         }
+
+        WidgetShellSettingsSlice captureSettings = _settingsService.Settings.WidgetShell;
+        WallpaperContrastSource source =
+            WallpaperCapturePreferenceKinds.NormalizeSource(captureSettings.WallpaperCaptureSource) switch
+            {
+                WallpaperCapturePreferenceKinds.SourceDesktopHost => WallpaperContrastSource.DesktopHost,
+                WallpaperCapturePreferenceKinds.SourceSystemWallpaper => WallpaperContrastSource.SystemWallpaper,
+                _ => WallpaperContrastSource.Auto
+            };
+        WallpaperHostCaptureMethod method =
+            WallpaperCapturePreferenceKinds.NormalizeMethod(captureSettings.WallpaperHostCaptureMethod) switch
+            {
+                WallpaperCapturePreferenceKinds.MethodFullWindow => WallpaperHostCaptureMethod.FullWindow,
+                WallpaperCapturePreferenceKinds.MethodLegacyWindow => WallpaperHostCaptureMethod.LegacyWindow,
+                _ => WallpaperHostCaptureMethod.Auto
+            };
+        int refreshIntervalSeconds =
+            WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(
+                captureSettings.WallpaperCaptureRefreshIntervalSeconds);
+        WallpaperContrastService.ConfigureCaptureOptions(new WallpaperCaptureOptions(
+            source,
+            method,
+            refreshIntervalSeconds));
 
         bool isAutomatic = WidgetForegroundSettings.ResolveMode(
             Config,

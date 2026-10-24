@@ -447,6 +447,63 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
     }
 
     [Fact]
+    public void WallpaperCaptureOptions_AreLocalizedPersistedAndBounded()
+    {
+        (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);
+        int committed = 0;
+        editor.AppearanceValueCommitted += () => committed++;
+
+        Assert.Contains(
+            editor.AvailableWallpaperCaptureSourceOptions,
+            option => Equals(option.Value, "SystemWallpaper") &&
+                      option.DisplayName == "Settings.WallpaperCapture.Source.SystemWallpaper");
+        Assert.Contains(
+            editor.AvailableWallpaperHostCaptureMethodOptions,
+            option => Equals(option.Value, "LegacyWindow") &&
+                      option.DisplayName == "Settings.WallpaperCapture.Method.LegacyWindow");
+
+        editor.WallpaperCaptureSource = "SystemWallpaper";
+        Assert.False(editor.CanEditWallpaperHostCaptureMethod);
+        editor.WallpaperHostCaptureMethod = "LegacyWindow";
+        editor.WallpaperCaptureRefreshIntervalSeconds = 1;
+
+        Assert.Equal("SystemWallpaper", settings.Settings.WidgetShell.WallpaperCaptureSource);
+        Assert.Equal("LegacyWindow", settings.Settings.WidgetShell.WallpaperHostCaptureMethod);
+        Assert.Equal(10d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(10, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(3, committed);
+    }
+
+    [Fact]
+    public void WallpaperCaptureRefreshInterval_NumberBoxInputRoundsClampsAndRestoresNonFiniteValues()
+    {
+        (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);
+        int committed = 0;
+        editor.AppearanceValueCommitted += () => committed++;
+
+        editor.WallpaperCaptureRefreshIntervalSeconds = 61.5;
+        Assert.Equal(62d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(62, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+
+        editor.WallpaperCaptureRefreshIntervalSeconds = 62.3;
+        Assert.Equal(62d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(62, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+
+        editor.WallpaperCaptureRefreshIntervalSeconds = double.NaN;
+        Assert.Equal(62d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(62, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+
+        editor.WallpaperCaptureRefreshIntervalSeconds = double.PositiveInfinity;
+        Assert.Equal(62d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(62, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+
+        editor.WallpaperCaptureRefreshIntervalSeconds = 5000;
+        Assert.Equal(3600d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(3600, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(2, committed);
+    }
+
+    [Fact]
     public void DefaultSizeEdits_NormalizeReenterAndLetTheCoordinatorSave()
     {
         (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);
@@ -567,6 +624,9 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
         Assert.Contains("controls:SettingsComboBox.Value=\"{Binding LayoutDensity, Mode=TwoWay}\"", window);
         Assert.Contains("controls:SettingsComboBox.Value=\"{Binding TitleIconMode, Mode=TwoWay}\"", window);
         Assert.Contains("controls:SettingsComboBox.Value=\"{Binding AnimationPreset, Mode=TwoWay}\"", window);
+        Assert.Contains("controls:SettingsComboBox.Value=\"{Binding WallpaperCaptureSource, Mode=TwoWay}\"", window);
+        Assert.Contains("controls:SettingsComboBox.Value=\"{Binding WallpaperHostCaptureMethod, Mode=TwoWay}\"", window);
+        Assert.Contains("Value=\"{Binding WallpaperCaptureRefreshIntervalSeconds, Mode=TwoWay}\"", window);
         Assert.Contains("Value=\"{Binding WidgetTransparency, Mode=TwoWay}\"", window);
         Assert.Contains("Value=\"{Binding TextSize, Mode=TwoWay}\"", window);
         // Conditional appearance sub-settings stay visible and gray out

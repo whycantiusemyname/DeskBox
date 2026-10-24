@@ -51,6 +51,18 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
         WidgetForegroundKinds.Custom,
         WidgetForegroundKinds.AutoBackground
     ];
+    private static readonly string[] WallpaperCaptureSources =
+    [
+        WallpaperCapturePreferenceKinds.SourceAuto,
+        WallpaperCapturePreferenceKinds.SourceDesktopHost,
+        WallpaperCapturePreferenceKinds.SourceSystemWallpaper
+    ];
+    private static readonly string[] WallpaperHostCaptureMethods =
+    [
+        WallpaperCapturePreferenceKinds.MethodAuto,
+        WallpaperCapturePreferenceKinds.MethodFullWindow,
+        WallpaperCapturePreferenceKinds.MethodLegacyWindow
+    ];
     private static readonly string[] BorderColorModes =
     [
         WidgetBorderKinds.ColorNeutral,
@@ -149,6 +161,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
     private string[]? _cachedTrayIconStyleNames;
     private string[]? _cachedMaterialTypeNames;
     private string[]? _cachedForegroundModeNames;
+    private string[]? _cachedWallpaperCaptureSourceNames;
+    private string[]? _cachedWallpaperHostCaptureMethodNames;
     private string[]? _cachedBorderColorModeNames;
     private string[]? _cachedBorderStyleNames;
     private string[]? _cachedCornerPreferenceNames;
@@ -188,6 +202,10 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
     private string _borderStyle = WidgetBorderKinds.StyleThin;
     private string _foregroundMode = WidgetForegroundKinds.FollowTheme;
     private string _foregroundColorHex = WidgetForegroundKinds.DefaultCustomColorHex;
+    private string _wallpaperCaptureSource = WallpaperCapturePreferenceKinds.SourceAuto;
+    private string _wallpaperHostCaptureMethod = WallpaperCapturePreferenceKinds.MethodAuto;
+    private double _wallpaperCaptureRefreshIntervalSeconds =
+        WallpaperCapturePreferenceKinds.DefaultRefreshIntervalSeconds;
     private string _widgetBackgroundMode = WidgetBackgroundModeKinds.Material;
     private string _widgetBackgroundUnifiedFit = WidgetBackgroundKinds.FitFill;
     private double _widgetBackgroundDimPercent = WidgetBackgroundKinds.DefaultDimPercent;
@@ -648,6 +666,133 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
     /// <summary>Whether the custom foreground color picker applies.</summary>
     public bool ShowForegroundCustomColor =>
         ForegroundMode == WidgetForegroundKinds.Custom;
+
+    public string WallpaperCaptureSource
+    {
+        get => _wallpaperCaptureSource;
+        set
+        {
+            string normalized = WallpaperCapturePreferenceKinds.NormalizeSource(value);
+            if (!SetProperty(ref _wallpaperCaptureSource, normalized))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(CanEditWallpaperHostCaptureMethod));
+            if (_isSyncingPresentation)
+            {
+                return;
+            }
+
+            _settings.SetWallpaperCaptureSource(normalized);
+            AppearanceValueCommitted?.Invoke();
+        }
+    }
+
+    public IReadOnlyList<SettingsOption> AvailableWallpaperCaptureSourceOptions
+    {
+        get
+        {
+            string[] keys =
+            [
+                "Settings.WallpaperCapture.Source.Auto",
+                "Settings.WallpaperCapture.Source.DesktopHost",
+                "Settings.WallpaperCapture.Source.SystemWallpaper"
+            ];
+            _cachedWallpaperCaptureSourceNames ??= keys.Select(key => _localize(key)).ToArray();
+            var options = new SettingsOption[WallpaperCaptureSources.Length];
+            for (int index = 0; index < WallpaperCaptureSources.Length; index++)
+            {
+                options[index] = new SettingsOption(
+                    WallpaperCaptureSources[index], _cachedWallpaperCaptureSourceNames[index]);
+            }
+
+            return options;
+        }
+    }
+
+    public string WallpaperHostCaptureMethod
+    {
+        get => _wallpaperHostCaptureMethod;
+        set
+        {
+            string normalized = WallpaperCapturePreferenceKinds.NormalizeMethod(value);
+            if (!SetProperty(ref _wallpaperHostCaptureMethod, normalized))
+            {
+                return;
+            }
+
+            if (_isSyncingPresentation)
+            {
+                return;
+            }
+
+            _settings.SetWallpaperHostCaptureMethod(normalized);
+            AppearanceValueCommitted?.Invoke();
+        }
+    }
+
+    public IReadOnlyList<SettingsOption> AvailableWallpaperHostCaptureMethodOptions
+    {
+        get
+        {
+            string[] keys =
+            [
+                "Settings.WallpaperCapture.Method.Auto",
+                "Settings.WallpaperCapture.Method.FullWindow",
+                "Settings.WallpaperCapture.Method.LegacyWindow"
+            ];
+            _cachedWallpaperHostCaptureMethodNames ??= keys.Select(key => _localize(key)).ToArray();
+            var options = new SettingsOption[WallpaperHostCaptureMethods.Length];
+            for (int index = 0; index < WallpaperHostCaptureMethods.Length; index++)
+            {
+                options[index] = new SettingsOption(
+                    WallpaperHostCaptureMethods[index], _cachedWallpaperHostCaptureMethodNames[index]);
+            }
+
+            return options;
+        }
+    }
+
+    public bool CanEditWallpaperHostCaptureMethod =>
+        WallpaperCaptureSource != WallpaperCapturePreferenceKinds.SourceSystemWallpaper;
+
+    public double WallpaperCaptureRefreshIntervalSeconds
+    {
+        get => _wallpaperCaptureRefreshIntervalSeconds;
+        set
+        {
+            if (!double.IsFinite(value))
+            {
+                // NumberBox reports NaN while its text is temporarily empty.
+                // Re-project the last valid value so the editor remains finite.
+                OnPropertyChanged(nameof(WallpaperCaptureRefreshIntervalSeconds));
+                return;
+            }
+
+            double normalized = Math.Clamp(
+                Math.Round(value, MidpointRounding.AwayFromZero),
+                WallpaperCapturePreferenceKinds.MinRefreshIntervalSeconds,
+                WallpaperCapturePreferenceKinds.MaxRefreshIntervalSeconds);
+            if (!SetProperty(ref _wallpaperCaptureRefreshIntervalSeconds, normalized))
+            {
+                if (value != normalized)
+                {
+                    OnPropertyChanged(nameof(WallpaperCaptureRefreshIntervalSeconds));
+                }
+
+                return;
+            }
+
+            if (_isSyncingPresentation)
+            {
+                return;
+            }
+
+            _settings.SetWallpaperCaptureRefreshIntervalSeconds((int)normalized);
+            AppearanceValueCommitted?.Invoke();
+        }
+    }
 
     private static readonly string[] WidgetBackgroundModes =
     [
@@ -1956,6 +2101,11 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
             BorderStyle = material.BorderStyle;
             ForegroundMode = foreground.ForegroundMode;
             ForegroundColorHex = NormalizeHexColor(foreground.ForegroundColor);
+            AppearanceWallpaperCaptureSettings wallpaperCapture =
+                _settings.ReadWallpaperCapture();
+            WallpaperCaptureSource = wallpaperCapture.Source;
+            WallpaperHostCaptureMethod = wallpaperCapture.Method;
+            WallpaperCaptureRefreshIntervalSeconds = wallpaperCapture.RefreshIntervalSeconds;
             AppearanceWidgetBackgroundSettings widgetBackground =
                 _settings.ReadWidgetBackground();
             WidgetBackgroundMode = widgetBackground.Mode;
@@ -2072,6 +2222,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
         _cachedTrayIconStyleNames = null;
         _cachedMaterialTypeNames = null;
         _cachedForegroundModeNames = null;
+        _cachedWallpaperCaptureSourceNames = null;
+        _cachedWallpaperHostCaptureMethodNames = null;
         _cachedWidgetBackgroundModeNames = null;
         _cachedWidgetBackgroundUnifiedFitNames = null;
         _cachedBorderColorModeNames = null;
@@ -2091,6 +2243,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(AvailableAccentColorSourceOptions));
         OnPropertyChanged(nameof(AvailableMaterialTypeOptions));
         OnPropertyChanged(nameof(AvailableForegroundModeOptions));
+        OnPropertyChanged(nameof(AvailableWallpaperCaptureSourceOptions));
+        OnPropertyChanged(nameof(AvailableWallpaperHostCaptureMethodOptions));
         OnPropertyChanged(nameof(AvailableWidgetBackgroundModeOptions));
         OnPropertyChanged(nameof(AvailableWidgetBackgroundUnifiedFitOptions));
         OnPropertyChanged(nameof(WidgetBackgroundDimValueText));

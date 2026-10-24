@@ -21,7 +21,7 @@ public interface ISettingsMigration
 public sealed class SettingsMigrationPipeline
 {
     /// <summary>The current schema version that the application expects.</summary>
-    public const int CurrentSchemaVersion = 15;
+    public const int CurrentSchemaVersion = 16;
 
     private readonly List<ISettingsMigration> _migrations = [];
 
@@ -43,6 +43,7 @@ public sealed class SettingsMigrationPipeline
         _migrations.Add(new Migration_12_To_13());
         _migrations.Add(new Migration_13_To_14());
         _migrations.Add(new Migration_14_To_15());
+        _migrations.Add(new Migration_15_To_16());
     }
 
     /// <summary>
@@ -730,6 +731,28 @@ internal sealed class Migration_14_To_15 : ISettingsMigration
 
     public void Migrate(AppSettings settings)
     {
+    }
+}
+
+/// <summary>
+/// v16 adds persisted preferences for the wallpaper source, the desktop-host
+/// capture technique, and its refresh interval. Older settings inherit the
+/// defaults; invalid stored values are normalized during migration.
+/// </summary>
+internal sealed class Migration_15_To_16 : ISettingsMigration
+{
+    public int FromVersion => 15;
+
+    public void Migrate(AppSettings settings)
+    {
+        WidgetShellSettingsSlice shell = settings.WidgetShell;
+        shell.WallpaperCaptureSource =
+            WallpaperCapturePreferenceKinds.NormalizeSource(shell.WallpaperCaptureSource);
+        shell.WallpaperHostCaptureMethod =
+            WallpaperCapturePreferenceKinds.NormalizeMethod(shell.WallpaperHostCaptureMethod);
+        shell.WallpaperCaptureRefreshIntervalSeconds =
+            WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(
+                shell.WallpaperCaptureRefreshIntervalSeconds);
     }
 }
 

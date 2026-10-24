@@ -130,16 +130,61 @@ jobs:
           if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
             throw "The self-contained DeskBox.exe was not produced in '$publishDirectory'."
           }
+          if (-not (Test-Path -LiteralPath (Join-Path $publishDirectory 'DeskBox.pri') -PathType Leaf)) {
+            throw "DeskBox.pri was not produced in '$publishDirectory'; XAML resources cannot be updated without it."
+          }
 
           $updateDirectory = Join-Path $PWD '.artifacts\executable-update'
           New-Item -ItemType Directory -Path $updateDirectory -Force | Out-Null
-          Copy-Item -LiteralPath $executablePath -Destination (Join-Path $updateDirectory 'DeskBox.exe') -Force
+
+          # The update runs on top of a deployed compatible runtime, so only
+          # application-owned files travel here. The PRI carries the XAML
+          # resources; Assets and ThirdParty are the app's published content.
+          # Never enumerate the publish root: it also contains the ~130 MiB
+          # Windows App SDK runtime.
+          $applicationPayload = @(
+            'DeskBox.exe',
+            'DeskBox.pri',
+            'Assets',
+            'ThirdParty'
+          )
+          $publishedRoot = $publishDirectory.TrimEnd('\', '/')
+          $payloadFiles = [System.Collections.Generic.List[object]]::new()
+          foreach ($relativeRoot in $applicationPayload) {
+            $sourcePath = Join-Path $publishDirectory $relativeRoot
+            if (-not (Test-Path -LiteralPath $sourcePath)) {
+              throw "Required application payload '$relativeRoot' is missing from '$publishDirectory'."
+            }
+
+            $sourceItem = Get-Item -LiteralPath $sourcePath
+            $sourceFiles = if ($sourceItem.PSIsContainer) {
+              @(Get-ChildItem -LiteralPath $sourcePath -File -Recurse)
+            } else {
+              @($sourceItem)
+            }
+            foreach ($sourceFile in $sourceFiles) {
+              $relativePath = $sourceFile.FullName.Substring(
+                $publishedRoot.Length + 1).Replace('\', '/')
+              $destinationPath = Join-Path $updateDirectory $relativePath
+              $destinationDirectory = Split-Path -Parent $destinationPath
+              if ($destinationDirectory) {
+                New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+              }
+              Copy-Item -LiteralPath $sourceFile.FullName -Destination $destinationPath -Force
+              $payloadFiles.Add([ordered]@{
+                path = $relativePath
+                sha256 = (Get-FileHash -LiteralPath $sourceFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              })
+            }
+          }
+
           $manifest = [ordered]@{
             gitSha = (git rev-parse HEAD).Trim()
             compatibleRuntimeVersion = '2.5.1'
             exeSha256 = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
+            files = @($payloadFiles | Sort-Object { $_.path })
           }
-          $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $updateDirectory 'manifest.json') -Encoding utf8NoBOM
+          $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $updateDirectory 'manifest.json') -Encoding utf8NoBOM
 
       - name: Package runnable offline build
         if: env.BuildOfflineArtifact == 'true'

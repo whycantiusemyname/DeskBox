@@ -10,7 +10,7 @@ namespace DeskBox.Tests;
 ///    (the typed model would strip its unknown fields irreversibly and the
 ///    stripped file would never re-migrate), and 2) a v9-era file (the
 ///    schema of every released 1.4.x/1.5.x build) must chain cleanly through
-///    every migration up to v13, including the entry-level binding pin the
+///    every migration up to v16, including the entry-level binding pin the
 ///    11→12 step mirrors from the inferred home.
 /// </summary>
 public sealed class SettingsForwardGuardAndChainTests : IDisposable
@@ -42,7 +42,7 @@ public sealed class SettingsForwardGuardAndChainTests : IDisposable
     }
 
     [Fact]
-    public void Pipeline_ChainsV9Settings_ThroughEveryMigrationToV15()
+    public void Pipeline_ChainsV9Settings_ThroughEveryMigrationToV16()
     {
         var settings = new AppSettings { SchemaVersion = 9 };
         settings.Widgets.Add(new WidgetConfig
@@ -92,7 +92,7 @@ public sealed class SettingsForwardGuardAndChainTests : IDisposable
             new SettingsMigrationPipeline().RunMigrationsOnCopy(settings);
 
         Assert.True(applied);
-        Assert.Equal(15, migrated.SchemaVersion);
+        Assert.Equal(16, migrated.SchemaVersion);
 
         // 12→13 rewrote the key to the v4 identity hash and remapped active.
         string mergedKey = Assert.Single(migrated.WidgetTopologyLayouts).Key;

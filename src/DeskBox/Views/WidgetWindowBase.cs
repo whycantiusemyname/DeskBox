@@ -234,7 +234,13 @@ public abstract partial class WidgetWindowBase : Window
     protected virtual void OnResizeStart() { }
 
     /// <summary>Called whenever the compact/capsule visual state changes.</summary>
-    protected virtual void OnCompactVisualStateChanged(bool collapsed) { }
+    protected virtual void OnCompactVisualStateChanged(bool collapsed)
+    {
+        // The expanded header/body sample regions and the compact chrome are
+        // different rectangles; drop cached luminance so the next sampling
+        // tick evaluates the newly visible state.
+        InvalidateAutoForegroundSamples();
+    }
 
     /// <summary>Whether to queue backdrop refresh after loading.</summary>
     protected virtual bool SupportsBackdropRefresh => true;

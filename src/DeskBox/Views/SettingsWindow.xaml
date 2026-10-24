@@ -449,6 +449,47 @@ Text="DeskBox" />
                             </toolkit:SettingsExpander.Items>
                         </toolkit:SettingsExpander>
 
+                        <toolkit:SettingsExpander
+                            svc:Localized.DescriptionKey="Settings.WallpaperCapture.Source.Description"
+                            svc:Localized.HeaderKey="Settings.WallpaperCapture.Source.Title">
+                            <toolkit:SettingsExpander.HeaderIcon>
+                                <FontIcon Glyph="&#xE91B;" />
+                            </toolkit:SettingsExpander.HeaderIcon>
+                            <ComboBox svc:Localized.AutomationNameKey="Settings.WallpaperCapture.Source.Title"
+                                MinWidth="{StaticResource SettingsControlMinWidth}"
+                                ItemsSource="{Binding AvailableWallpaperCaptureSourceOptions}"
+                                controls:SettingsComboBox.Value="{Binding WallpaperCaptureSource, Mode=TwoWay}" />
+                            <toolkit:SettingsExpander.Items>
+                                <toolkit:SettingsCard
+                                    HorizontalContentAlignment="Right"
+                                    IsEnabled="{Binding CanEditWallpaperHostCaptureMethod}"
+                                    svc:Localized.DescriptionKey="Settings.WallpaperCapture.Method.Description"
+                                    svc:Localized.HeaderKey="Settings.WallpaperCapture.Method.Title">
+                                    <toolkit:SettingsCard.HeaderIcon>
+                                        <FontIcon Glyph="&#xE8A5;" />
+                                    </toolkit:SettingsCard.HeaderIcon>
+                                    <ComboBox svc:Localized.AutomationNameKey="Settings.WallpaperCapture.Method.Title"
+                                        MinWidth="{StaticResource SettingsControlMinWidth}"
+                                        ItemsSource="{Binding AvailableWallpaperHostCaptureMethodOptions}"
+                                        controls:SettingsComboBox.Value="{Binding WallpaperHostCaptureMethod, Mode=TwoWay}" />
+                                </toolkit:SettingsCard>
+                                <toolkit:SettingsCard
+                                    HorizontalContentAlignment="Right"
+                                    svc:Localized.DescriptionKey="Settings.WallpaperCapture.RefreshInterval.Description"
+                                    svc:Localized.HeaderKey="Settings.WallpaperCapture.RefreshInterval.Title">
+                                    <toolkit:SettingsCard.HeaderIcon>
+                                        <FontIcon Glyph="&#xE823;" />
+                                    </toolkit:SettingsCard.HeaderIcon>
+                                    <NumberBox svc:Localized.AutomationNameKey="Settings.WallpaperCapture.RefreshInterval.Title"
+                                        Maximum="3600"
+                                        Minimum="10"
+                                        SmallChange="10"
+                                        Style="{StaticResource CompactNumberBoxStyle}"
+                                        Value="{Binding WallpaperCaptureRefreshIntervalSeconds, Mode=TwoWay}" />
+                                </toolkit:SettingsCard>
+                            </toolkit:SettingsExpander.Items>
+                        </toolkit:SettingsExpander>
+
                                 <toolkit:SettingsCard
                                     HorizontalContentAlignment="Right"
                                     svc:Localized.DescriptionKey="Settings.TextShadow.Description"

@@ -243,6 +243,9 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal(24 * 60, s.CloudBackupIntervalMinutes);
         Assert.Equal(0L, s.CloudBackupLastSuccessUtcTicks);
         Assert.Equal(0L, s.CloudBackupLastFailureUtcTicks);
+        Assert.Equal("Auto", s.WallpaperCaptureSource);
+        Assert.Equal("Auto", s.WallpaperHostCaptureMethod);
+        Assert.Equal(60, s.WallpaperCaptureRefreshIntervalSeconds);
     }
 
     [Fact]
@@ -499,5 +502,8 @@ public sealed class SettingsSliceContractBaselineTests
         "cloudBackupLastSuccessUtcTicks",
         "cloudBackupLastFailureUtcTicks",
         "cloudBackupLastUnverifiedUtcTicks",
+        "wallpaperCaptureSource",
+        "wallpaperHostCaptureMethod",
+        "wallpaperCaptureRefreshIntervalSeconds",
     ];
 }

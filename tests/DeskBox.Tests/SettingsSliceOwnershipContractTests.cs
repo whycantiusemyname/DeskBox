@@ -47,8 +47,9 @@ public sealed class SettingsSliceOwnershipContractTests
         // plus the parallel update-UX batch's showReleaseNotesAfterUpdate
         // and lastRunVersion.
         // +2 = autoDownloadUpdates + showUpdateToastNotification (background
-        // auto-download and update toasts).
-        Assert.Equal(243, FacadeProperties.Length);
+        // auto-download and update toasts); +3 = schema v16 wallpaper capture
+        // source, host capture method and refresh interval.
+        Assert.Equal(246, FacadeProperties.Length);
 
         foreach (PropertyInfo facade in FacadeProperties)
         {

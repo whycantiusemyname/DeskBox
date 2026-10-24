@@ -904,6 +904,39 @@ public sealed partial class WidgetShell : UserControl
     internal void SetGroupTitleForegroundColors(Color primary, Color secondary, Color disabled, bool highContrast) =>
         GroupTitleSwitcher.SetTabForegroundColors(primary, secondary, disabled, highContrast);
 
+    internal FrameworkElement ForegroundHeaderSampleElement =>
+        _isCollapsed ? CollapsedChromeLayer : TitleBarGrid;
+
+    internal FrameworkElement ForegroundBodySampleElement =>
+        _isCollapsed ? CollapsedChromeLayer : ContentTransitionViewport;
+
+    internal void ApplyHeaderForegroundPalette(WidgetForegroundPalette palette)
+    {
+        SetHeaderBrushColor("WidgetHeaderPrimaryBrush", palette.Primary);
+        SetHeaderBrushColor("WidgetHeaderSecondaryBrush", palette.Secondary);
+        SetHeaderBrushColor("WidgetHeaderTertiaryBrush", palette.Tertiary);
+        SetHeaderBrushColor("WidgetHeaderDisabledBrush", palette.Disabled);
+        SetHeaderBrushColor("WidgetHeaderDividerBrush", palette.Divider);
+    }
+
+    private void SetHeaderBrushColor(string key, Color color)
+    {
+        SetHeaderBrushColor(TitleBarGrid.Resources, key, color);
+        SetHeaderBrushColor(CollapsedChromeLayer.Resources, key, color);
+    }
+
+    private static void SetHeaderBrushColor(
+        ResourceDictionary resources,
+        string key,
+        Color color)
+    {
+        if (resources.TryGetValue(key, out object? value) &&
+            value is SolidColorBrush brush)
+        {
+            brush.Color = color;
+        }
+    }
+
     public void SetGroupPresentation(
         WidgetGroupPresentation? presentation,
         bool animateIdentity = false,
