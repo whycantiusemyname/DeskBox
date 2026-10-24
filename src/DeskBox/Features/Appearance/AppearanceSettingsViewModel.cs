@@ -202,6 +202,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
     private string _borderStyle = WidgetBorderKinds.StyleThin;
     private string _foregroundMode = WidgetForegroundKinds.FollowTheme;
     private string _foregroundColorHex = WidgetForegroundKinds.DefaultCustomColorHex;
+    private double _foregroundContrastThresholdPercent =
+        WidgetForegroundContrastThresholdKinds.DefaultPercent;
     private string _wallpaperCaptureSource = WallpaperCapturePreferenceKinds.SourceAuto;
     private string _wallpaperHostCaptureMethod = WallpaperCapturePreferenceKinds.MethodAuto;
     private double _wallpaperCaptureRefreshIntervalSeconds =
@@ -666,6 +668,41 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
     /// <summary>Whether the custom foreground color picker applies.</summary>
     public bool ShowForegroundCustomColor =>
         ForegroundMode == WidgetForegroundKinds.Custom;
+
+    /// <summary>Linear-luminance percentage used to choose white text in automatic contrast mode.</summary>
+    public double ForegroundContrastThresholdPercent
+    {
+        get => _foregroundContrastThresholdPercent;
+        set
+        {
+            double normalized = WidgetForegroundContrastThresholdKinds
+                .NormalizeEditorPercent(value, _foregroundContrastThresholdPercent);
+            if (!double.IsFinite(value))
+            {
+                // NumberBox reports NaN while its text is temporarily empty.
+                OnPropertyChanged(nameof(ForegroundContrastThresholdPercent));
+                return;
+            }
+
+            if (!SetProperty(ref _foregroundContrastThresholdPercent, normalized))
+            {
+                if (value != normalized)
+                {
+                    OnPropertyChanged(nameof(ForegroundContrastThresholdPercent));
+                }
+
+                return;
+            }
+
+            if (_isSyncingPresentation)
+            {
+                return;
+            }
+
+            _settings.SetWidgetForegroundContrastThresholdPercent(normalized);
+            AppearanceValueCommitted?.Invoke();
+        }
+    }
 
     public string WallpaperCaptureSource
     {
@@ -2101,6 +2138,7 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
             BorderStyle = material.BorderStyle;
             ForegroundMode = foreground.ForegroundMode;
             ForegroundColorHex = NormalizeHexColor(foreground.ForegroundColor);
+            ForegroundContrastThresholdPercent = foreground.ContrastThresholdPercent;
             AppearanceWallpaperCaptureSettings wallpaperCapture =
                 _settings.ReadWallpaperCapture();
             WallpaperCaptureSource = wallpaperCapture.Source;

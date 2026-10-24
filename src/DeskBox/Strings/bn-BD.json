@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "গাঢ় অগ্রভাগ",
   "Settings.WidgetForeground.Custom": "কাস্টম",
   "Settings.WidgetForeground.AutoBackground": "ব্যাকগ্রাউন্ডের স্বয়ংক্রিয় কনট্রাস্ট",
+  "Settings.WidgetForeground.Threshold.Title": "স্বয়ংক্রিয় কনট্রাস্টের সীমা (%)",
+  "Settings.WidgetForeground.Threshold.Description": "এই সীমা রৈখিক ব্যাকগ্রাউন্ড লুমিন্যান্স ব্যবহার করে: মান বাড়ালে আরও বেশি ব্যাকগ্রাউন্ডে সাদা লেখা বেছে নেওয়া হয়। এটি শুধু লেখার কনট্রাস্ট বদলায়, স্ক্রিনের উজ্জ্বলতা বা অস্বচ্ছতা নয়।",
   "Settings.WallpaperCapture.Source.Title": "ওয়ালপেপারের উৎস",
   "Settings.WallpaperCapture.Source.Description": "ব্যাকগ্রাউন্ডের স্বয়ংক্রিয় কনট্রাস্টের জন্য কোন ওয়ালপেপার ব্যবহার হবে তা বেছে নিন। স্বয়ংক্রিয় মোড আগে সক্রিয় ডেস্কটপ পড়ে; সেটি না পাওয়া গেলে Windows-এ সংরক্ষিত স্থির ওয়ালপেপার ব্যবহার করে।",
   "Settings.WallpaperCapture.Source.Auto": "স্বয়ংক্রিয় (আগে ডেস্কটপ)",

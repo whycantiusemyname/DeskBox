@@ -1,3 +1,5 @@
+using DeskBox.Contracts;
+
 namespace DeskBox.Models;
 
 /// <summary>
@@ -35,6 +37,10 @@ public sealed class WidgetShellSettingsSlice
 
     /// <summary>Custom widget foreground color in <c>#RRGGBB</c> form.</summary>
     public string WidgetForegroundColor { get; set; } = "#F5F5F5";
+
+    /// <summary>Linear-luminance threshold, in percent, for automatic white widget text.</summary>
+    public double WidgetForegroundContrastThresholdPercent { get; set; } =
+        WidgetForegroundContrastThresholdKinds.DefaultPercent;
 
     /// <summary>
     /// Border color mode for widget windows.

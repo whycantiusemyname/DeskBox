@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "مقدمة داكنة",
   "Settings.WidgetForeground.Custom": "مخصص",
   "Settings.WidgetForeground.AutoBackground": "تباين تلقائي للخلفية",
+  "Settings.WidgetForeground.Threshold.Title": "عتبة التباين التلقائي (%)",
+  "Settings.WidgetForeground.Threshold.Description": "تستخدم العتبة سطوع الخلفية الخطي: تؤدي القيم الأعلى إلى استخدام النص الأبيض مع خلفيات أكثر. يغيّر هذا تباين النص فقط، ولا يغيّر سطوع الشاشة أو العتامة.",
   "Settings.WallpaperCapture.Source.Title": "مصدر خلفية الشاشة",
   "Settings.WallpaperCapture.Source.Description": "اختر الخلفية المستخدمة للتباين التلقائي للخلفية. يحاول الوضع التلقائي قراءة سطح المكتب النشط أولًا، ثم يستخدم الخلفية الثابتة المحفوظة في Windows إذا تعذر ذلك.",
   "Settings.WallpaperCapture.Source.Auto": "تلقائي (سطح المكتب أولًا)",

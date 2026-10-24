@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "深色文字",
   "Settings.WidgetForeground.Custom": "自定义",
   "Settings.WidgetForeground.AutoBackground": "背景自动对比度",
+  "Settings.WidgetForeground.Threshold.Title": "自动对比阈值 (%)",
+  "Settings.WidgetForeground.Threshold.Description": "此阈值根据背景的线性亮度判断：数值越高，越多背景会使用白色文字。它只改变文字对比度，不改变屏幕亮度或不透明度。",
   "Settings.WallpaperCapture.Source.Title": "壁纸来源",
   "Settings.WallpaperCapture.Source.Description": "选择背景自动对比度使用的壁纸。自动模式优先读取活动桌面；无法读取时改用 Windows 保存的静态壁纸。",
   "Settings.WallpaperCapture.Source.Auto": "自动（优先活动桌面）",

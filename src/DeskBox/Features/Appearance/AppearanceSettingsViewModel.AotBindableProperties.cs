@@ -49,6 +49,7 @@ namespace DeskBox.Features.Appearance;
     nameof(FileNameWidthScale),
     nameof(FileNameWidthValueText),
     nameof(ForegroundColorHex),
+    nameof(ForegroundContrastThresholdPercent),
     nameof(ForegroundMode),
     nameof(HorizontalSpacingScale),
     nameof(HorizontalSpacingValueText),

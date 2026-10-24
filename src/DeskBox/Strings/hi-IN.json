@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "गहरी अग्रभूमि",
   "Settings.WidgetForeground.Custom": "कस्टम",
   "Settings.WidgetForeground.AutoBackground": "पृष्ठभूमि के अनुसार स्वचालित कंट्रास्ट",
+  "Settings.WidgetForeground.Threshold.Title": "स्वचालित कंट्रास्ट सीमा (%)",
+  "Settings.WidgetForeground.Threshold.Description": "यह सीमा पृष्ठभूमि की रैखिक ल्यूमिनेंस का उपयोग करती है: अधिक मान पर अधिक पृष्ठभूमियों में सफ़ेद टेक्स्ट चुना जाता है। इससे केवल टेक्स्ट का कंट्रास्ट बदलता है, स्क्रीन की चमक या अपारदर्शिता नहीं।",
   "Settings.WallpaperCapture.Source.Title": "वॉलपेपर स्रोत",
   "Settings.WallpaperCapture.Source.Description": "पृष्ठभूमि के स्वचालित कंट्रास्ट के लिए वॉलपेपर चुनें। स्वचालित मोड पहले सक्रिय डेस्कटॉप पढ़ता है और उपलब्ध न होने पर Windows में सहेजा स्थिर वॉलपेपर इस्तेमाल करता है।",
   "Settings.WallpaperCapture.Source.Auto": "स्वचालित (पहले डेस्कटॉप)",

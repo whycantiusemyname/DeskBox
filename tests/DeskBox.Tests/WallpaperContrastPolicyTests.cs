@@ -1,3 +1,4 @@
+using DeskBox.Contracts;
 using DeskBox.Services;
 
 namespace DeskBox.Tests;
@@ -13,6 +14,16 @@ public sealed class WallpaperContrastPolicyTests
         Assert.True(WallpaperContrastPolicy.CanReuseSample(
             sampleInputsMatch: true,
             foregroundStillApplied: true));
+        Assert.False(WallpaperContrastPolicy.CanReuseSample(
+            sampleInputsMatch: true,
+            foregroundStillApplied: true,
+            cachedThresholdPercent: 17.9,
+            currentThresholdPercent: 30));
+        Assert.True(WallpaperContrastPolicy.CanReuseSample(
+            sampleInputsMatch: true,
+            foregroundStillApplied: true,
+            cachedThresholdPercent: 30,
+            currentThresholdPercent: 30));
     }
 
     [Fact]
@@ -178,6 +189,40 @@ public sealed class WallpaperContrastPolicyTests
         Assert.True(WallpaperContrastPolicy.PreferWhite(0.20, previousWhite: true));
         Assert.False(WallpaperContrastPolicy.PreferWhite(0.28, previousWhite: true));
         Assert.False(WallpaperContrastPolicy.PreferWhite(0.20, previousWhite: false));
+    }
+
+    [Fact]
+    public void PreferWhite_UsesTheConfiguredThresholdAndKeepsTheLegacyDefault()
+    {
+        Assert.False(WallpaperContrastPolicy.PreferWhite(0.20, previousWhite: null));
+        Assert.True(WallpaperContrastPolicy.PreferWhite(
+            0.20,
+            previousWhite: null,
+            threshold: 0.21));
+        Assert.False(WallpaperContrastPolicy.PreferWhite(
+            0.15,
+            previousWhite: null,
+            threshold: 0.10));
+        Assert.False(WallpaperContrastPolicy.PreferWhite(
+            0.20,
+            previousWhite: null,
+            threshold: double.PositiveInfinity));
+    }
+
+    [Fact]
+    public void ForegroundThresholdPercent_NormalizesPersistedAndEditorValues()
+    {
+        Assert.Equal(17.9, WidgetForegroundContrastThresholdKinds.NormalizePercent(double.NaN));
+        Assert.Equal(17.9, WidgetForegroundContrastThresholdKinds.NormalizePercent(double.NegativeInfinity));
+        Assert.Equal(0, WidgetForegroundContrastThresholdKinds.NormalizePercent(-5));
+        Assert.Equal(100, WidgetForegroundContrastThresholdKinds.NormalizePercent(105));
+        Assert.Equal(0.179, WidgetForegroundContrastThresholdKinds.ToLinearLuminance(17.9), 6);
+
+        Assert.Equal(32.4, WidgetForegroundContrastThresholdKinds.NormalizeEditorPercent(32.4, 20));
+        Assert.Equal(20, WidgetForegroundContrastThresholdKinds.NormalizeEditorPercent(double.NaN, 20));
+        Assert.Equal(17.9, WidgetForegroundContrastThresholdKinds.NormalizeEditorPercent(
+            double.NaN,
+            double.PositiveInfinity));
     }
 
     [Fact]

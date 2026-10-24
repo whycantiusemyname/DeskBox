@@ -535,8 +535,8 @@ public const int DefaultSearchMaxResults = 100;
         settings.WidgetForegroundColor = WidgetForegroundSettings.DefaultCustomColorHex;
         settings.WidgetBorderColorMode = WidgetBorderColorModeNeutral;
         settings.WidgetBorderStyle = WidgetBorderStyleThin;
-        // Schema-v10 background fields reset through the slice so the
-        // facade-access ratchet stays untouched.
+        // Background, contrast and capture preferences reset through the
+        // owning slice so the facade-access ratchet stays untouched.
         WidgetShellSettingsSlice backgroundShell = settings.WidgetShell;
         backgroundShell.WidgetBackgroundMode = null;
         backgroundShell.WidgetBackgroundUnifiedImage = null;
@@ -544,6 +544,12 @@ public const int DefaultSearchMaxResults = 100;
         backgroundShell.WidgetBackgroundDim = null;
         backgroundShell.WidgetBackgroundUnifiedFit = null;
         backgroundShell.WidgetTextShadowEnabled = false;
+        backgroundShell.WidgetForegroundContrastThresholdPercent =
+            WidgetForegroundContrastThresholdKinds.DefaultPercent;
+        backgroundShell.WallpaperCaptureSource = WallpaperCapturePreferenceKinds.SourceAuto;
+        backgroundShell.WallpaperHostCaptureMethod = WallpaperCapturePreferenceKinds.MethodAuto;
+        backgroundShell.WallpaperCaptureRefreshIntervalSeconds =
+            WallpaperCapturePreferenceKinds.DefaultRefreshIntervalSeconds;
         settings.WidgetAnimationEffect = WidgetAnimationEffectSlideFade;
         settings.WidgetAnimationSpeed = WidgetAnimationSpeedStandard;
         settings.WidgetAnimationSlideDirection = WidgetAnimationSlideDirectionRight;
@@ -1705,6 +1711,14 @@ settings.FocusClickedWidgetOnRaise = false;
 
         changed |= WidgetForegroundSettings.NormalizeGlobal(settings);
         WidgetShellSettingsSlice wallpaperShell = settings.WidgetShell;
+        double foregroundThreshold = WidgetForegroundContrastThresholdKinds.NormalizePercent(
+            wallpaperShell.WidgetForegroundContrastThresholdPercent);
+        if (!wallpaperShell.WidgetForegroundContrastThresholdPercent.Equals(foregroundThreshold))
+        {
+            wallpaperShell.WidgetForegroundContrastThresholdPercent = foregroundThreshold;
+            changed = true;
+        }
+
         string wallpaperSource = WallpaperCapturePreferenceKinds.NormalizeSource(
             wallpaperShell.WallpaperCaptureSource);
         if (!string.Equals(wallpaperShell.WallpaperCaptureSource, wallpaperSource, StringComparison.Ordinal))

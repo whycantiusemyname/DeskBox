@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "深色文字",
   "Settings.WidgetForeground.Custom": "自訂",
   "Settings.WidgetForeground.AutoBackground": "背景自動對比",
+  "Settings.WidgetForeground.Threshold.Title": "自動對比閾值 (%)",
+  "Settings.WidgetForeground.Threshold.Description": "此閾值依背景的線性亮度判斷：數值越高，越多背景會使用白色文字。它只會改變文字對比，不會改變螢幕亮度或不透明度。",
   "Settings.WallpaperCapture.Source.Title": "桌布來源",
   "Settings.WallpaperCapture.Source.Description": "選擇背景自動對比所使用的桌布。自動模式會優先讀取作用中的桌面；無法讀取時改用 Windows 儲存的靜態桌布。",
   "Settings.WallpaperCapture.Source.Auto": "自動（優先作用中的桌面）",

@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Dunkler Vordergrund",
   "Settings.WidgetForeground.Custom": "Benutzerdefiniert",
   "Settings.WidgetForeground.AutoBackground": "Automatischer Hintergrundkontrast",
+  "Settings.WidgetForeground.Threshold.Title": "Schwellenwert für automatischen Kontrast (%)",
+  "Settings.WidgetForeground.Threshold.Description": "Der Schwellenwert verwendet die lineare Hintergrundluminanz: Höhere Werte wählen auf mehr Hintergründen weißen Text. Er ändert nur den Textkontrast, weder Bildschirmhelligkeit noch Deckkraft.",
   "Settings.WallpaperCapture.Source.Title": "Hintergrundbildquelle",
   "Settings.WallpaperCapture.Source.Description": "Wähle das Hintergrundbild für den automatischen Hintergrundkontrast. Automatisch versucht zuerst den aktiven Desktop und verwendet andernfalls das in Windows gespeicherte statische Hintergrundbild.",
   "Settings.WallpaperCapture.Source.Auto": "Automatisch (Desktop zuerst)",

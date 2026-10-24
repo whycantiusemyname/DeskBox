@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Primer plano oscuro",
   "Settings.WidgetForeground.Custom": "Personalizado",
   "Settings.WidgetForeground.AutoBackground": "Contraste automático del fondo",
+  "Settings.WidgetForeground.Threshold.Title": "Umbral de contraste automático (%)",
+  "Settings.WidgetForeground.Threshold.Description": "El umbral usa la luminancia lineal del fondo: los valores más altos eligen texto blanco en más fondos. Solo cambia el contraste del texto, no el brillo de la pantalla ni la opacidad.",
   "Settings.WallpaperCapture.Source.Title": "Origen del fondo de pantalla",
   "Settings.WallpaperCapture.Source.Description": "Elige el fondo usado para el contraste automático del fondo. El modo automático prueba primero el escritorio activo y, si no está disponible, usa el fondo estático guardado por Windows.",
   "Settings.WallpaperCapture.Source.Auto": "Automático (primero el escritorio)",

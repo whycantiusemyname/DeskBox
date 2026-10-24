@@ -22,7 +22,7 @@ public interface ISettingsMigration
 public sealed class SettingsMigrationPipeline
 {
     /// <summary>The current schema version that the application expects.</summary>
-    public const int CurrentSchemaVersion = 16;
+    public const int CurrentSchemaVersion = 17;
 
     private readonly List<ISettingsMigration> _migrations = [];
 
@@ -45,6 +45,7 @@ public sealed class SettingsMigrationPipeline
         _migrations.Add(new Migration_13_To_14());
         _migrations.Add(new Migration_14_To_15());
         _migrations.Add(new Migration_15_To_16());
+        _migrations.Add(new Migration_16_To_17());
     }
 
     /// <summary>
@@ -754,6 +755,24 @@ internal sealed class Migration_15_To_16 : ISettingsMigration
         shell.WallpaperCaptureRefreshIntervalSeconds =
             WallpaperCapturePreferenceKinds.NormalizeRefreshIntervalSeconds(
                 shell.WallpaperCaptureRefreshIntervalSeconds);
+    }
+}
+
+/// <summary>
+/// v17 adds the configurable automatic widget foreground contrast threshold.
+/// Older profiles inherit the legacy 17.9% value; invalid values are
+/// normalized before the profile is saved.
+/// </summary>
+internal sealed class Migration_16_To_17 : ISettingsMigration
+{
+    public int FromVersion => 16;
+
+    public void Migrate(AppSettings settings)
+    {
+        WidgetShellSettingsSlice shell = settings.WidgetShell;
+        shell.WidgetForegroundContrastThresholdPercent =
+            WidgetForegroundContrastThresholdKinds.NormalizePercent(
+                shell.WidgetForegroundContrastThresholdPercent);
     }
 }
 

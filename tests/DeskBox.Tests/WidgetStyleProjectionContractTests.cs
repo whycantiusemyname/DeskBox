@@ -64,7 +64,10 @@ public sealed class WidgetStyleProjectionContractTests
         "widgetBackgroundUnifiedFit",
         // Pure visual device preference (schema v11) — syncs nothing the
         // remote side could not re-derive locally.
-        "widgetTextShadowEnabled"
+        "widgetTextShadowEnabled",
+        // Wallpaper capture source and technique depend on each device's desktop.
+        "wallpaperCaptureSource", "wallpaperHostCaptureMethod",
+        "wallpaperCaptureRefreshIntervalSeconds"
     };
 
     /// <summary>

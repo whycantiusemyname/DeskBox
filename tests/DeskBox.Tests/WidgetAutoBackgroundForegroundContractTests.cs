@@ -152,6 +152,21 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
     }
 
     [Fact]
+    public void ThresholdChangesInvalidateBothCachesAndResetTheirHysteresisChoice()
+    {
+        string foreground = Read("src/DeskBox/Views/WidgetWindowBase.Foreground.cs");
+        string fileNames = Read("src/DeskBox/Controls/WidgetContents/FileSurfaceContent.Contrast.cs");
+
+        Assert.Contains("cachedThresholdPercent: previous?.ThresholdPercent", foreground, StringComparison.Ordinal);
+        Assert.Contains("header.ThresholdPercent.Equals(thresholdPercent)", foreground, StringComparison.Ordinal);
+        Assert.Contains("body.ThresholdPercent.Equals(thresholdPercent)", foreground, StringComparison.Ordinal);
+        Assert.Contains("previousSample.ThresholdPercent.Equals(thresholdPercent)", foreground, StringComparison.Ordinal);
+        Assert.Contains("cachedThresholdPercent: cached.ThresholdPercent", fileNames, StringComparison.Ordinal);
+        Assert.Contains("previous.ThresholdPercent.Equals(thresholdPercent)", fileNames, StringComparison.Ordinal);
+        Assert.Contains("threshold: threshold", fileNames, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CompactChrome_InvalidatesTheHeaderAndBodySamples()
     {
         string navigation = Read("src/DeskBox/Views/ContentWidgetWindow.GroupNavigation.cs");
@@ -244,10 +259,16 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
                 "Settings.WidgetForeground.Description").GetString();
             string? sourceDescription = root.GetProperty(
                 "Settings.WallpaperCapture.Source.Description").GetString();
+            string? thresholdLabel = root.GetProperty(
+                "Settings.WidgetForeground.Threshold.Title").GetString();
+            string? thresholdDescription = root.GetProperty(
+                "Settings.WidgetForeground.Threshold.Description").GetString();
 
             Assert.False(string.IsNullOrWhiteSpace(label), file);
             Assert.False(string.IsNullOrWhiteSpace(description), file);
             Assert.False(string.IsNullOrWhiteSpace(sourceDescription), file);
+            Assert.False(string.IsNullOrWhiteSpace(thresholdLabel), file);
+            Assert.False(string.IsNullOrWhiteSpace(thresholdDescription), file);
             Assert.DoesNotContain("Automatic filename contrast", label, StringComparison.Ordinal);
             Assert.DoesNotContain("automatic filename contrast", sourceDescription, StringComparison.Ordinal);
 
@@ -271,6 +292,11 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
         Assert.Contains("titles", englishDescription, StringComparison.Ordinal);
         Assert.Contains("monochrome controls", englishDescription, StringComparison.Ordinal);
         Assert.Contains("file names", englishDescription, StringComparison.Ordinal);
+        string englishThresholdDescription = englishRoot.GetProperty(
+            "Settings.WidgetForeground.Threshold.Description").GetString()!;
+        Assert.Contains("higher values", englishThresholdDescription, StringComparison.Ordinal);
+        Assert.Contains("linear", englishThresholdDescription, StringComparison.Ordinal);
+        Assert.Contains("not screen brightness", englishThresholdDescription, StringComparison.Ordinal);
     }
 
     [Fact]

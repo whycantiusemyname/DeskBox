@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "어두운 텍스트",
   "Settings.WidgetForeground.Custom": "사용자 지정",
   "Settings.WidgetForeground.AutoBackground": "배경에 맞춘 자동 대비",
+  "Settings.WidgetForeground.Threshold.Title": "자동 대비 임계값(%)",
+  "Settings.WidgetForeground.Threshold.Description": "선형 배경 휘도 기준입니다. 값을 높이면 더 많은 배경에서 흰색 텍스트를 사용합니다. 텍스트 대비만 바꾸며 화면 밝기나 불투명도는 바꾸지 않습니다.",
   "Settings.WallpaperCapture.Source.Title": "배경 화면 소스",
   "Settings.WallpaperCapture.Source.Description": "배경 자동 대비에 사용할 배경 화면을 선택합니다. 자동은 활성 데스크톱을 먼저 확인하고, 사용할 수 없으면 Windows에 저장된 정적 배경 화면을 사용합니다.",
   "Settings.WallpaperCapture.Source.Auto": "자동 (데스크톱 우선)",

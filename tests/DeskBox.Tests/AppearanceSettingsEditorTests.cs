@@ -59,6 +59,7 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
                 shell.WidgetBorderStyle = SettingsService.WidgetBorderStyleThick;
                 shell.WidgetForegroundMode = WidgetForegroundSettings.ModeCustom;
                 shell.WidgetForegroundColor = "#112233";
+                shell.WidgetForegroundContrastThresholdPercent = 42.6;
                 shell.IconSize = 34d;
                 shell.TextSize = 13d;
                 shell.LayoutDensityScale = 0.6d;
@@ -88,6 +89,7 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
         Assert.Equal(WidgetForegroundSettings.ModeCustom, editor.ForegroundMode);
         Assert.True(editor.ShowForegroundCustomColor);
         Assert.Equal("#112233", editor.ForegroundColorHex);
+        Assert.Equal(42.6, editor.ForegroundContrastThresholdPercent);
         Assert.Equal(34d, editor.IconSize);
         Assert.Equal(13d, editor.TextSize);
         Assert.Equal(0.6d, editor.LayoutDensityScale);
@@ -475,6 +477,34 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
     }
 
     [Fact]
+    public void ForegroundContrastThreshold_NumberBoxClampsPersistsAndRestoresNonFiniteInput()
+    {
+        (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(
+            _root,
+            service => service.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent = 42.6);
+        int committed = 0;
+        editor.AppearanceValueCommitted += () => committed++;
+
+        Assert.Equal(42.6, editor.ForegroundContrastThresholdPercent);
+        editor.ForegroundContrastThresholdPercent = 31.2;
+        Assert.Equal(31.2, settings.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+
+        editor.ForegroundContrastThresholdPercent = double.NaN;
+        Assert.Equal(31.2, editor.ForegroundContrastThresholdPercent);
+        Assert.Equal(31.2, settings.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+
+        editor.ForegroundContrastThresholdPercent = double.PositiveInfinity;
+        Assert.Equal(31.2, editor.ForegroundContrastThresholdPercent);
+
+        editor.ForegroundContrastThresholdPercent = -1;
+        Assert.Equal(0, editor.ForegroundContrastThresholdPercent);
+        editor.ForegroundContrastThresholdPercent = 101;
+        Assert.Equal(100, editor.ForegroundContrastThresholdPercent);
+        Assert.Equal(100, settings.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+        Assert.Equal(3, committed);
+    }
+
+    [Fact]
     public void WallpaperCaptureRefreshInterval_NumberBoxInputRoundsClampsAndRestoresNonFiniteValues()
     {
         (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);
@@ -627,6 +657,7 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
         Assert.Contains("controls:SettingsComboBox.Value=\"{Binding WallpaperCaptureSource, Mode=TwoWay}\"", window);
         Assert.Contains("controls:SettingsComboBox.Value=\"{Binding WallpaperHostCaptureMethod, Mode=TwoWay}\"", window);
         Assert.Contains("Value=\"{Binding WallpaperCaptureRefreshIntervalSeconds, Mode=TwoWay}\"", window);
+        Assert.Contains("Value=\"{Binding ForegroundContrastThresholdPercent, Mode=TwoWay}\"", window);
         Assert.Contains("Value=\"{Binding WidgetTransparency, Mode=TwoWay}\"", window);
         Assert.Contains("Value=\"{Binding TextSize, Mode=TwoWay}\"", window);
         // Conditional appearance sub-settings stay visible and gray out

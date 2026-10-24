@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Dark foreground",
   "Settings.WidgetForeground.Custom": "Custom",
   "Settings.WidgetForeground.AutoBackground": "Automatic background contrast",
+  "Settings.WidgetForeground.Threshold.Title": "Automatic contrast threshold (%)",
+  "Settings.WidgetForeground.Threshold.Description": "The threshold uses linear background luminance: higher values choose white text on more backgrounds. It changes text contrast only, not screen brightness or opacity.",
   "Settings.WallpaperCapture.Source.Title": "Wallpaper source",
   "Settings.WallpaperCapture.Source.Description": "Choose the wallpaper used for automatic background contrast. Automatic checks the active desktop first, then uses the static wallpaper saved by Windows if the desktop is unavailable.",
   "Settings.WallpaperCapture.Source.Auto": "Automatic (desktop first)",

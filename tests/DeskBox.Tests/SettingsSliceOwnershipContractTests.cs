@@ -48,8 +48,9 @@ public sealed class SettingsSliceOwnershipContractTests
         // and lastRunVersion.
         // +2 = autoDownloadUpdates + showUpdateToastNotification (background
         // auto-download and update toasts); +3 = schema v16 wallpaper capture
-        // source, host capture method and refresh interval.
-        Assert.Equal(246, FacadeProperties.Length);
+        // source, host capture method and refresh interval; +1 = schema v17
+        // automatic foreground contrast threshold.
+        Assert.Equal(247, FacadeProperties.Length);
 
         foreach (PropertyInfo facade in FacadeProperties)
         {

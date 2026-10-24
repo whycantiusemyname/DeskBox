@@ -1,3 +1,5 @@
+using DeskBox.Contracts;
+
 namespace DeskBox.Services;
 
 internal enum WallpaperPosition
@@ -32,7 +34,12 @@ internal static class WallpaperContrastPolicy
 {
     public static bool CanReuseSample(
         bool sampleInputsMatch,
-        bool foregroundStillApplied) => sampleInputsMatch && foregroundStillApplied;
+        bool foregroundStillApplied,
+        double? cachedThresholdPercent = null,
+        double? currentThresholdPercent = null) =>
+        sampleInputsMatch && foregroundStillApplied &&
+        (cachedThresholdPercent is null || currentThresholdPercent is null ||
+         cachedThresholdPercent.Value.Equals(currentThresholdPercent.Value));
 
     public static bool HasUsableMonitors(int usableMonitorCount, int reportedMonitorCount) =>
         usableMonitorCount > 0 && reportedMonitorCount > 0 &&
@@ -171,9 +178,15 @@ internal static class WallpaperContrastPolicy
     }
 
     /// <summary>Returns true for white foreground. Keeps the previous choice in the transition band.</summary>
-    public static bool PreferWhite(double luminance, bool? previousWhite, double hysteresis = 0.08)
+    public static bool PreferWhite(
+        double luminance,
+        bool? previousWhite,
+        double hysteresis = 0.08,
+        double threshold = WidgetForegroundContrastThresholdKinds.DefaultLuminance)
     {
-        double threshold = 0.179;
+        threshold = double.IsFinite(threshold)
+            ? Math.Clamp(threshold, 0, 1)
+            : WidgetForegroundContrastThresholdKinds.DefaultLuminance;
         double band = Math.Clamp(hysteresis, 0, 0.5);
         luminance = Math.Clamp(luminance, 0, 1);
         if (previousWhite is null)

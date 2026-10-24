@@ -426,6 +426,39 @@ public sealed class SettingsMigrationPipelineTests
         Assert.All(steps, step => Assert.True(step.Applied));
     }
 
+    [Theory]
+    [InlineData(-5, 0)]
+    [InlineData(46.2, 46.2)]
+    [InlineData(105, 100)]
+    public void VersionSeventeen_NormalizesTheForegroundContrastThreshold(
+        double storedPercent,
+        double expectedPercent)
+    {
+        var settings = new AppSettings
+        {
+            SchemaVersion = 16,
+            WidgetForegroundContrastThresholdPercent = storedPercent
+        };
+
+        var (result, anyApplied) = new SettingsMigrationPipeline().RunMigrationsOnCopy(settings);
+
+        Assert.True(anyApplied);
+        Assert.Equal(17, result.SchemaVersion);
+        Assert.Equal(expectedPercent, result.WidgetForegroundContrastThresholdPercent);
+    }
+
+    [Fact]
+    public void VersionSeventeen_UsesTheLegacyThresholdForProfilesWithoutAValue()
+    {
+        var settings = new AppSettings { SchemaVersion = 16 };
+
+        var (result, anyApplied) = new SettingsMigrationPipeline().RunMigrationsOnCopy(settings);
+
+        Assert.True(anyApplied);
+        Assert.Equal(17, result.SchemaVersion);
+        Assert.Equal(17.9, result.WidgetForegroundContrastThresholdPercent);
+    }
+
     [Fact]
     public void GapInTheChain_StopsAtTheMissingStep()
     {

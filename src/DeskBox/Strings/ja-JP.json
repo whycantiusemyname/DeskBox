@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "暗い文字",
   "Settings.WidgetForeground.Custom": "カスタム",
   "Settings.WidgetForeground.AutoBackground": "背景に応じた自動コントラスト",
+  "Settings.WidgetForeground.Threshold.Title": "自動コントラストのしきい値 (%)",
+  "Settings.WidgetForeground.Threshold.Description": "線形輝度のしきい値です。値を上げると、より多くの背景で白い文字が使われます。文字のコントラストだけを変え、画面の明るさや不透明度は変わりません。",
   "Settings.WallpaperCapture.Source.Title": "壁紙の取得元",
   "Settings.WallpaperCapture.Source.Description": "背景の自動コントラストに使う壁紙を選びます。自動ではアクティブなデスクトップを優先し、利用できない場合は Windows に保存された静止壁紙を使います。",
   "Settings.WallpaperCapture.Source.Auto": "自動（デスクトップ優先）",

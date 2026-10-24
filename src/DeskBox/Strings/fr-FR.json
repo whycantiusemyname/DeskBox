@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Premier plan sombre",
   "Settings.WidgetForeground.Custom": "Personnalisé",
   "Settings.WidgetForeground.AutoBackground": "Contraste automatique du fond",
+  "Settings.WidgetForeground.Threshold.Title": "Seuil de contraste automatique (%)",
+  "Settings.WidgetForeground.Threshold.Description": "Le seuil utilise la luminance linéaire de l’arrière-plan : une valeur plus élevée choisit du texte blanc sur davantage d’arrière-plans. Il modifie uniquement le contraste du texte, pas la luminosité de l’écran ni l’opacité.",
   "Settings.WallpaperCapture.Source.Title": "Source du papier peint",
   "Settings.WallpaperCapture.Source.Description": "Choisissez le papier peint utilisé pour le contraste automatique du fond. Le mode automatique essaie d’abord le bureau actif, puis utilise le papier peint statique enregistré par Windows s’il est indisponible.",
   "Settings.WallpaperCapture.Source.Auto": "Automatique (bureau d’abord)",

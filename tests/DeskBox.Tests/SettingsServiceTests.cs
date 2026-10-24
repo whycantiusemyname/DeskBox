@@ -202,7 +202,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(SettingsLoadRecoveryState.Primary, service.LastLoadRecoveryState);
         Assert.Equal(SettingsMigrationPipeline.CurrentSchemaVersion, service.Settings.SchemaVersion);
-        Assert.Equal(16, service.Settings.SchemaVersion);
+        Assert.Equal(17, service.Settings.SchemaVersion);
 
         // Widgets survive the chain (and the layout-store adoption): both
         // instances keep their identity, kind, and legacy geometry — the 5→6
@@ -263,7 +263,7 @@ public sealed class SettingsServiceTests : IDisposable
         // The migrated profile is persisted back at the current schema.
         using JsonDocument persisted = JsonDocument.Parse(
             await File.ReadAllTextAsync(settingsPath));
-        Assert.Equal(16, persisted.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(17, persisted.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.True(persisted.RootElement.GetProperty("fileStacksEnabled").GetBoolean());
         Assert.False(persisted.RootElement.GetProperty("fileStackAutoStacking").GetBoolean());
 
@@ -272,7 +272,7 @@ public sealed class SettingsServiceTests : IDisposable
         var reloaded = new SettingsService(_settingsRoot);
         await reloaded.LoadAsync();
         Assert.Equal(SettingsLoadRecoveryState.Primary, reloaded.LastLoadRecoveryState);
-        Assert.Equal(16, reloaded.Settings.SchemaVersion);
+        Assert.Equal(17, reloaded.Settings.SchemaVersion);
         Assert.True(reloaded.Settings.FileStacksEnabled);
         Assert.False(reloaded.Settings.FileStackAutoStacking);
         Assert.Equal(2, reloaded.Settings.Widgets.Count);
@@ -1341,6 +1341,10 @@ public sealed class SettingsServiceTests : IDisposable
             WidgetBorderStyle = SettingsService.WidgetBorderStyleThick,
             WidgetBorderColorMode = SettingsService.WidgetBorderColorModeNone,
             WidgetMaterialIntensity = 0.1,
+            WidgetForegroundContrastThresholdPercent = 89.4,
+            WallpaperCaptureSource = WallpaperCapturePreferenceKinds.SourceSystemWallpaper,
+            WallpaperHostCaptureMethod = WallpaperCapturePreferenceKinds.MethodLegacyWindow,
+            WallpaperCaptureRefreshIntervalSeconds = 3600,
             LayoutDensity = "Compact",
             Language = SettingsService.LanguageChinese,
             AutoStart = false,
@@ -1409,6 +1413,12 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(newUserDefaults.WidgetTitleIconMode, restoredDefaults.WidgetTitleIconMode);
         Assert.Equal(SettingsService.WidgetBorderStyleThin, newUserDefaults.WidgetBorderStyle);
         Assert.Equal(newUserDefaults.WidgetBorderStyle, restoredDefaults.WidgetBorderStyle);
+        Assert.Equal(newUserDefaults.WidgetForegroundContrastThresholdPercent,
+            restoredDefaults.WidgetForegroundContrastThresholdPercent);
+        Assert.Equal(newUserDefaults.WallpaperCaptureSource, restoredDefaults.WallpaperCaptureSource);
+        Assert.Equal(newUserDefaults.WallpaperHostCaptureMethod, restoredDefaults.WallpaperHostCaptureMethod);
+        Assert.Equal(newUserDefaults.WallpaperCaptureRefreshIntervalSeconds,
+            restoredDefaults.WallpaperCaptureRefreshIntervalSeconds);
         Assert.Equal(SettingsService.WidgetBorderColorModeNeutral, newUserDefaults.WidgetBorderColorMode);
         Assert.Equal(newUserDefaults.WidgetBorderColorMode, restoredDefaults.WidgetBorderColorMode);
         Assert.Equal(SettingsService.DefaultWidgetMaterialIntensity, newUserDefaults.WidgetMaterialIntensity);

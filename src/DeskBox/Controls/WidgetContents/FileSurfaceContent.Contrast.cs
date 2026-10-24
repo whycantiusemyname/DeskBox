@@ -152,6 +152,10 @@ public sealed partial class FileSurfaceContent
         }
 
         AppSettings settings = _settingsService.Settings;
+        double thresholdPercent = WidgetForegroundContrastThresholdKinds.NormalizePercent(
+            settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+        double threshold = WidgetForegroundContrastThresholdKinds.ToLinearLuminance(
+            thresholdPercent);
         if (WidgetForegroundSettings.ResolveMode(Config, settings) !=
             WidgetForegroundSettings.ModeAutoBackground)
         {
@@ -286,7 +290,9 @@ public sealed partial class FileSurfaceContent
                     expandedNameVisible ? sampledName : null);
             if (WallpaperContrastPolicy.CanReuseSample(
                     sampleInputsMatch: cacheMatches,
-                    foregroundStillApplied: cachedForegroundStillApplied))
+                    foregroundStillApplied: cachedForegroundStillApplied,
+                    cachedThresholdPercent: cached.ThresholdPercent,
+                    currentThresholdPercent: thresholdPercent))
             {
                 cacheHits++;
                 if (cached.PreferWhite) whiteApplied++;
@@ -335,12 +341,14 @@ public sealed partial class FileSurfaceContent
 
             bool? previousWhite = _adaptiveNameChoices.TryGetValue(
                 surface,
-                out AdaptiveNameSampleState previous)
+                out AdaptiveNameSampleState previous) &&
+                previous.ThresholdPercent.Equals(thresholdPercent)
                     ? previous.PreferWhite
                     : null;
             bool preferWhite = WallpaperContrastPolicy.PreferWhite(
                 backgroundLuminance,
-                previousWhite);
+                previousWhite,
+                threshold: threshold);
             surface.SetAdaptiveNameForeground(
                 preferWhite,
                 expandedNameVisible ? sampledName : null);
@@ -353,6 +361,7 @@ public sealed partial class FileSurfaceContent
                 luminanceOverlayOpacity,
                 selectionOverlayColor,
                 selectionOverlayOpacity,
+                thresholdPercent,
                 preferWhite);
             if (preferWhite) whiteApplied++;
             else darkApplied++;
@@ -574,5 +583,6 @@ public sealed partial class FileSurfaceContent
         double OverlayOpacity,
         Color SelectionOverlayColor,
         double SelectionOverlayOpacity,
+        double ThresholdPercent,
         bool PreferWhite);
 }

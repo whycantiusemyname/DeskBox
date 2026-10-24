@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Primeiro plano escuro",
   "Settings.WidgetForeground.Custom": "Personalizado",
   "Settings.WidgetForeground.AutoBackground": "Contraste automático do fundo",
+  "Settings.WidgetForeground.Threshold.Title": "Limite de contraste automático (%)",
+  "Settings.WidgetForeground.Threshold.Description": "O limite usa a luminância linear do fundo: valores maiores escolhem texto branco em mais fundos. Ele altera apenas o contraste do texto, não o brilho da tela nem a opacidade.",
   "Settings.WallpaperCapture.Source.Title": "Origem do papel de parede",
   "Settings.WallpaperCapture.Source.Description": "Escolha o papel de parede usado no contraste automático do fundo. O modo automático verifica primeiro a área de trabalho ativa e usa o papel estático salvo pelo Windows se ela não estiver disponível.",
   "Settings.WallpaperCapture.Source.Auto": "Automático (área de trabalho primeiro)",

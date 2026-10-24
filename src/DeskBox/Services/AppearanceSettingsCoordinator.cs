@@ -100,7 +100,9 @@ public sealed class AppearanceSettingsCoordinator : IAppearanceSettings
         WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
         return new(
             WidgetForegroundKinds.NormalizeMode(shell.WidgetForegroundMode),
-            shell.WidgetForegroundColor);
+            shell.WidgetForegroundColor,
+            WidgetForegroundContrastThresholdKinds.NormalizePercent(
+                shell.WidgetForegroundContrastThresholdPercent));
     }
 
     public AppearanceWallpaperCaptureSettings ReadWallpaperCapture()
@@ -660,6 +662,15 @@ public sealed class AppearanceSettingsCoordinator : IAppearanceSettings
         WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
         if (shell.WidgetForegroundColor == colorHex) return;
         shell.WidgetForegroundColor = colorHex;
+    }
+
+    public void SetWidgetForegroundContrastThresholdPercent(double percent)
+    {
+        ThrowIfStopped();
+        double normalized = WidgetForegroundContrastThresholdKinds.NormalizePercent(percent);
+        WidgetShellSettingsSlice shell = _settings.Settings.WidgetShell;
+        if (shell.WidgetForegroundContrastThresholdPercent == normalized) return;
+        shell.WidgetForegroundContrastThresholdPercent = normalized;
     }
 
     public void SetWallpaperCaptureSource(string? source)

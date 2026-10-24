@@ -457,15 +457,24 @@ public abstract partial class WidgetWindowBase
         long wallpaperVersion = surface.OverlayOpacity < 1
             ? WallpaperContrastService.SnapshotVersion
             : 0;
+        double thresholdPercent = WidgetForegroundContrastThresholdKinds.NormalizePercent(
+            SettingsService.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+        double threshold = WidgetForegroundContrastThresholdKinds.ToLinearLuminance(
+            thresholdPercent);
         AutoForegroundSampleState? previous = header
             ? _headerAutoSample
             : _bodyAutoSample;
-        if (previous is { } cached &&
+        bool sampleInputsMatch = previous is { } cached &&
             cached.Bounds == screenBounds &&
             cached.WallpaperVersion == wallpaperVersion &&
             cached.HasSolidWidgetBackground == surface.HasSolidWidgetBackground &&
             cached.OverlayColor.Equals(surface.OverlayColor) &&
-            cached.OverlayOpacity.Equals(surface.OverlayOpacity))
+            cached.OverlayOpacity.Equals(surface.OverlayOpacity);
+        if (WallpaperContrastPolicy.CanReuseSample(
+                sampleInputsMatch,
+                foregroundStillApplied: true,
+                cachedThresholdPercent: previous?.ThresholdPercent,
+                currentThresholdPercent: thresholdPercent))
         {
             return false;
         }
@@ -485,13 +494,18 @@ public abstract partial class WidgetWindowBase
                 surface);
         bool preferWhite = WallpaperContrastPolicy.PreferWhite(
             backgroundLuminance,
-            previous?.PreferWhite);
+            previous is { } previousSample &&
+            previousSample.ThresholdPercent.Equals(thresholdPercent)
+                ? previousSample.PreferWhite
+                : null,
+            threshold: threshold);
         var next = new AutoForegroundSampleState(
             screenBounds,
             wallpaperVersion,
             surface.HasSolidWidgetBackground,
             surface.OverlayColor,
             surface.OverlayOpacity,
+            thresholdPercent,
             preferWhite);
 
         if (header)
@@ -582,14 +596,18 @@ public abstract partial class WidgetWindowBase
 
     private void ReapplyCachedAutoBackgroundPalettes()
     {
-        if (_headerAutoSample is { } header)
+        double thresholdPercent = WidgetForegroundContrastThresholdKinds.NormalizePercent(
+            SettingsService.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+        if (_headerAutoSample is { } header &&
+            header.ThresholdPercent.Equals(thresholdPercent))
         {
             ApplyAutoForegroundPalette(
                 header: true,
                 WidgetForegroundPalette.FromPreferWhite(header.PreferWhite));
         }
 
-        if (_bodyAutoSample is { } body)
+        if (_bodyAutoSample is { } body &&
+            body.ThresholdPercent.Equals(thresholdPercent))
         {
             ApplyAutoForegroundPalette(
                 header: false,
@@ -602,7 +620,12 @@ public abstract partial class WidgetWindowBase
     {
         double luminance =
             WidgetAutoBackgroundContrastPolicy.ResolveBackgroundLuminance(0, surface);
-        bool preferWhite = WallpaperContrastPolicy.PreferWhite(luminance, null);
+        double threshold = WidgetForegroundContrastThresholdKinds.ToLinearLuminance(
+            SettingsService.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
+        bool preferWhite = WallpaperContrastPolicy.PreferWhite(
+            luminance,
+            null,
+            threshold: threshold);
         WidgetForegroundPalette palette =
             WidgetForegroundPalette.FromPreferWhite(preferWhite);
         ApplyAutoForegroundPalette(header: true, palette);
@@ -684,5 +707,6 @@ public abstract partial class WidgetWindowBase
         bool HasSolidWidgetBackground,
         Color OverlayColor,
         double OverlayOpacity,
+        double ThresholdPercent,
         bool PreferWhite);
 }

@@ -139,6 +139,32 @@ public static class WidgetForegroundKinds
 }
 
 /// <summary>
+/// Percent-based linear-luminance threshold for choosing white widget text
+/// in automatic background contrast mode.
+/// </summary>
+public static class WidgetForegroundContrastThresholdKinds
+{
+    public const double DefaultPercent = 17.9;
+    public const double DefaultLuminance = DefaultPercent / 100d;
+    public const double MinPercent = 0;
+    public const double MaxPercent = 100;
+
+    public static double NormalizePercent(double value) =>
+        double.IsFinite(value)
+            ? Math.Clamp(value, MinPercent, MaxPercent)
+            : DefaultPercent;
+
+    /// <summary>Restores the last valid editor value for NumberBox's temporary NaN state.</summary>
+    public static double NormalizeEditorPercent(double value, double previousValidPercent) =>
+        double.IsFinite(value)
+            ? Math.Clamp(value, MinPercent, MaxPercent)
+            : NormalizePercent(previousValidPercent);
+
+    public static double ToLinearLuminance(double percent) =>
+        NormalizePercent(percent) / 100d;
+}
+
+/// <summary>
 /// Canonical user-facing preferences for capturing the wallpaper used by
 /// automatic file-name contrast. These are persisted strings so the settings
 /// facade remains source-generated and forward-compatible.
@@ -441,7 +467,8 @@ public readonly record struct AppearanceAnimationSettings(
 
 public readonly record struct AppearanceForegroundSettings(
     string ForegroundMode,
-    string ForegroundColor);
+    string ForegroundColor,
+    double ContrastThresholdPercent);
 
 public readonly record struct AppearanceWidgetBackgroundSettings(
     string Mode,
@@ -513,6 +540,7 @@ public interface IAppearanceSettings
 
     void SetWidgetForegroundMode(string? mode);
     void SetWidgetForegroundColor(string colorHex);
+    void SetWidgetForegroundContrastThresholdPercent(double percent);
     void SetWallpaperCaptureSource(string? source);
     void SetWallpaperHostCaptureMethod(string? method);
     void SetWallpaperCaptureRefreshIntervalSeconds(int seconds);

@@ -26,7 +26,7 @@ internal static class WidgetStyleBackupProjection
     /// <summary>
     /// Flat settings.json keys carrying widget-shell VISUAL style
     /// preferences — the wire-name whitelist for both directions. Only
-    /// appearance syncs: material/opacity, colors, borders/corners,
+    /// appearance syncs: material/opacity, colors/contrast threshold, borders/corners,
     /// animation, chrome/title display, and compact-state appearance.
     /// Everything positional or behavioral stays device-local — default
     /// widget size, density/spacing scales, icon/text size, capsule-bar
@@ -42,6 +42,7 @@ internal static class WidgetStyleBackupProjection
     {
         "widgetOpacity", "widgetMaterialType", "widgetMaterialIntensity",
         "widgetForegroundMode", "widgetForegroundColor",
+        "widgetForegroundContrastThresholdPercent",
         "widgetBorderColorMode", "widgetBorderStyle",
         "widgetCornerPreference",
         "widgetAnimationEffect", "widgetAnimationSpeed",

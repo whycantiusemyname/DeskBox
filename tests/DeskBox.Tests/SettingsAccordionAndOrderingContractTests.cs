@@ -234,24 +234,25 @@ public sealed class SettingsAccordionAndOrderingContractTests
 
     // -------------------------------------------------------------- E. 材质
 
-    // Spec E1 + E3: exactly two expanders — the material parent
-    // (Settings.Material.Title) and the text parent (Settings.WidgetForeground.Title),
-    // plus the pre-existing widget-background expander which stays as-is;
-    // the exact count also locks that border/corner cards are not folded in.
+    // The appearance material section has material, text, wallpaper-capture
+    // and widget-background expanders. Border, corner and text-shadow cards
+    // remain flat.
     [Fact]
-    public void AppearanceMaterial_HasExactlyTheThreeParentExpanders()
+    public void AppearanceMaterial_HasExactlyTheFourParentExpanders()
     {
         string slice = MaterialSlice();
 
         int expanderCount = CountOpeningTags(slice, "toolkit:SettingsExpander");
-        Assert.True(expanderCount == 3,
-            $"AppearanceMaterial section: expected exactly 3 SettingsExpander elements " +
-            $"(material parent + text parent + widget background), found {expanderCount}.");
+        Assert.True(expanderCount == 4,
+            $"AppearanceMaterial section: expected exactly 4 SettingsExpander elements " +
+            $"(material + text + wallpaper capture + widget background), found {expanderCount}.");
 
         Assert.NotNull(FindOpeningTag(
             slice, "toolkit:SettingsExpander", "HeaderKey=\"Settings.Material.Title\""));
         Assert.NotNull(FindOpeningTag(
             slice, "toolkit:SettingsExpander", "HeaderKey=\"Settings.WidgetForeground.Title\""));
+        Assert.NotNull(FindOpeningTag(
+            slice, "toolkit:SettingsExpander", "HeaderKey=\"Settings.WallpaperCapture.Source.Title\""));
     }
 
     // Spec E2 + E3: Opacity and MaterialIntensity are children of the material

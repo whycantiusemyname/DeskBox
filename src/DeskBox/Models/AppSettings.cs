@@ -833,4 +833,7 @@ public class AppSettings
 
     /// <inheritdoc cref="WidgetShellSettingsSlice.WallpaperCaptureRefreshIntervalSeconds"/>
     public int WallpaperCaptureRefreshIntervalSeconds { get => WidgetShell.WallpaperCaptureRefreshIntervalSeconds; set => WidgetShell.WallpaperCaptureRefreshIntervalSeconds = value; }
+
+    /// <inheritdoc cref="WidgetShellSettingsSlice.WidgetForegroundContrastThresholdPercent"/>
+    public double WidgetForegroundContrastThresholdPercent { get => WidgetShell.WidgetForegroundContrastThresholdPercent; set => WidgetShell.WidgetForegroundContrastThresholdPercent = value; }
 }

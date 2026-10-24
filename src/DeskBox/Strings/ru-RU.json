@@ -2569,6 +2569,8 @@
   "Settings.WidgetForeground.Dark": "Тёмный текст",
   "Settings.WidgetForeground.Custom": "Пользовательский",
   "Settings.WidgetForeground.AutoBackground": "Автоматический контраст фона",
+  "Settings.WidgetForeground.Threshold.Title": "Порог автоматического контраста (%)",
+  "Settings.WidgetForeground.Threshold.Description": "Порог учитывает линейную яркость фона: при более высоком значении белый текст выбирается на большем числе фонов. Меняется только контраст текста, а не яркость экрана или непрозрачность.",
   "Settings.WallpaperCapture.Source.Title": "Источник обоев",
   "Settings.WallpaperCapture.Source.Description": "Выберите обои для автоматического контраста фона. В автоматическом режиме сначала используется активный рабочий стол, а если он недоступен — статичные обои, сохранённые Windows.",
   "Settings.WallpaperCapture.Source.Auto": "Автоматически (сначала рабочий стол)",

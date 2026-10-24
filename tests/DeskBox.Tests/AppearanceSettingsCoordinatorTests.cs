@@ -23,6 +23,7 @@ public sealed class AppearanceSettingsCoordinatorTests : IDisposable
     {
         var settings = new SettingsService(_root);
         var coordinator = new AppearanceSettingsCoordinator(settings);
+        coordinator.SetWidgetForegroundContrastThresholdPercent(58.3);
 
         AppearanceValueUpdate icon = coordinator.UpdateIconSize(25);
         Assert.False(icon.Committed);
@@ -53,6 +54,7 @@ public sealed class AppearanceSettingsCoordinatorTests : IDisposable
         Assert.Equal(26, reloaded.Settings.WidgetShell.IconSize);
         Assert.Equal(12.5, reloaded.Settings.WidgetShell.TextSize);
         Assert.Equal(0.42, reloaded.Settings.WidgetShell.HorizontalSpacingScale);
+        Assert.Equal(58.3, reloaded.Settings.WidgetShell.WidgetForegroundContrastThresholdPercent);
     }
 
     [Fact]
@@ -221,11 +223,13 @@ public sealed class AppearanceSettingsCoordinatorTests : IDisposable
 
         coordinator.SetWidgetForegroundMode(WidgetForegroundSettings.ModeCustom);
         coordinator.SetWidgetForegroundColor("#112233");
+        coordinator.SetWidgetForegroundContrastThresholdPercent(29.6);
         coordinator.SetWidgetTitleIconMode(SettingsService.WidgetTitleIconModeFilledMono);
         coordinator.SetFileNameLineCount(SettingsService.MinFileNameLineCount);
         Assert.Equal(0, notified);
         Assert.Equal(WidgetForegroundSettings.ModeCustom, settings.Settings.WidgetShell.WidgetForegroundMode);
         Assert.Equal("#112233", settings.Settings.WidgetShell.WidgetForegroundColor);
+        Assert.Equal(29.6, coordinator.ReadForeground().ContrastThresholdPercent);
         Assert.Equal(SettingsService.WidgetTitleIconModeFilledMono, settings.Settings.WidgetShell.WidgetTitleIconMode);
         Assert.Equal(SettingsService.MinFileNameLineCount, settings.Settings.FileWidget.FileNameLineCount);
 

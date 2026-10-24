@@ -446,6 +446,21 @@ Text="DeskBox" />
                                         HorizontalAlignment="Right"
                                         SelectedColor="{Binding ForegroundColorHex, Mode=TwoWay, Converter={StaticResource SettingsColorStringConverter}}" />
                                 </toolkit:SettingsCard>
+                                <toolkit:SettingsCard
+                                    HorizontalContentAlignment="Right"
+                                    svc:Localized.DescriptionKey="Settings.WidgetForeground.Threshold.Description"
+                                    svc:Localized.HeaderKey="Settings.WidgetForeground.Threshold.Title">
+                                    <toolkit:SettingsCard.HeaderIcon>
+                                        <FontIcon Glyph="&#xE9D9;" />
+                                    </toolkit:SettingsCard.HeaderIcon>
+                                    <NumberBox svc:Localized.AutomationNameKey="Settings.WidgetForeground.Threshold.Title"
+                                        Maximum="100"
+                                        Minimum="0"
+                                        SmallChange="0.1"
+                                        SpinButtonPlacementMode="Compact"
+                                        Style="{StaticResource CompactNumberBoxStyle}"
+                                        Value="{Binding ForegroundContrastThresholdPercent, Mode=TwoWay}" />
+                                </toolkit:SettingsCard>
                             </toolkit:SettingsExpander.Items>
                         </toolkit:SettingsExpander>
 

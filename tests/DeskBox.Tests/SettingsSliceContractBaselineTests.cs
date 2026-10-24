@@ -107,6 +107,7 @@ public sealed class SettingsSliceContractBaselineTests
         Assert.Equal(0.65, s.WidgetMaterialIntensity);
         Assert.Equal("FollowTheme", s.WidgetForegroundMode);
         Assert.Equal("#F5F5F5", s.WidgetForegroundColor);
+        Assert.Equal(17.9, s.WidgetForegroundContrastThresholdPercent);
         Assert.Equal("Neutral", s.WidgetBorderColorMode);
         Assert.Equal("Thin", s.WidgetBorderStyle);
         Assert.Equal("Round", s.WidgetCornerPreference);
@@ -505,5 +506,6 @@ public sealed class SettingsSliceContractBaselineTests
         "wallpaperCaptureSource",
         "wallpaperHostCaptureMethod",
         "wallpaperCaptureRefreshIntervalSeconds",
+        "widgetForegroundContrastThresholdPercent",
     ];
 }

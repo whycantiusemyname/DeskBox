@@ -26,7 +26,7 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
             new SettingsMigrationPipeline().RunMigrationsOnCopy(oldSettings);
 
         Assert.True(defaultsApplied);
-        Assert.Equal(16, defaults.SchemaVersion);
+        Assert.Equal(17, defaults.SchemaVersion);
         Assert.Equal("Auto", defaults.WallpaperCaptureSource);
         Assert.Equal("Auto", defaults.WallpaperHostCaptureMethod);
         Assert.Equal(60, defaults.WallpaperCaptureRefreshIntervalSeconds);
@@ -79,7 +79,7 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
 
         var reloaded = new SettingsService(_root);
         await reloaded.LoadAsync();
-        Assert.Equal(16, reloaded.Settings.SchemaVersion);
+        Assert.Equal(17, reloaded.Settings.SchemaVersion);
         Assert.Equal("DesktopHost", reloaded.Settings.WidgetShell.WallpaperCaptureSource);
         Assert.Equal("LegacyWindow", reloaded.Settings.WidgetShell.WallpaperHostCaptureMethod);
         Assert.Equal(120, reloaded.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
@@ -87,7 +87,7 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
         using JsonDocument persisted = JsonDocument.Parse(
             await File.ReadAllTextAsync(Path.Combine(_root, "settings.json")));
         JsonElement root = persisted.RootElement;
-        Assert.Equal(16, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(17, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("DesktopHost", root.GetProperty("wallpaperCaptureSource").GetString());
         Assert.Equal("LegacyWindow", root.GetProperty("wallpaperHostCaptureMethod").GetString());
         Assert.Equal(120, root.GetProperty("wallpaperCaptureRefreshIntervalSeconds").GetInt32());
