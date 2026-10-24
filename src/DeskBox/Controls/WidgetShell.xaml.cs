@@ -904,11 +904,26 @@ public sealed partial class WidgetShell : UserControl
     internal void SetGroupTitleForegroundColors(Color primary, Color secondary, Color disabled, bool highContrast) =>
         GroupTitleSwitcher.SetTabForegroundColors(primary, secondary, disabled, highContrast);
 
+    internal event EventHandler? CompactForegroundContractChanged;
+
     internal FrameworkElement ForegroundHeaderSampleElement =>
         _isCollapsed ? CollapsedChromeLayer : TitleBarGrid;
 
     internal FrameworkElement ForegroundBodySampleElement =>
         _isCollapsed ? CollapsedChromeLayer : ContentTransitionViewport;
+
+    internal bool CompactPresentationOwnsForegroundContract =>
+        _compactPresentation is { } presentation &&
+        (presentation.UseLightForeground.HasValue ||
+         (presentation.UseFullBleedBackground && presentation.Thumbnail is not null));
+
+    internal ElementTheme CompactPresentationForegroundTheme =>
+        _compactPresentation?.UseLightForeground switch
+        {
+            true => ElementTheme.Dark,
+            false => ElementTheme.Light,
+            _ => ActualTheme
+        };
 
     internal void ApplyHeaderForegroundPalette(WidgetForegroundPalette palette)
     {
@@ -2486,6 +2501,8 @@ public sealed partial class WidgetShell : UserControl
             StopCompactMarquee();
         }
 
+        bool previousOwnsForegroundContract = CompactPresentationOwnsForegroundContract;
+        ElementTheme previousForegroundTheme = CompactPresentationForegroundTheme;
         _compactPresentation = presentation;
         CompactTitleText.Text = presentation.Title;
         CompactTitleMarqueeClone.Text = presentation.Title;
@@ -2623,6 +2640,12 @@ public sealed partial class WidgetShell : UserControl
         if (liveStateChanged && _isCollapsed)
         {
             AnimateCompactLiveChange();
+        }
+
+        if (previousOwnsForegroundContract != CompactPresentationOwnsForegroundContract ||
+            previousForegroundTheme != CompactPresentationForegroundTheme)
+        {
+            CompactForegroundContractChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 

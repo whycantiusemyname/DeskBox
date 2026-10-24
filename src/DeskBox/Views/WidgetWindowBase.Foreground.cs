@@ -33,23 +33,38 @@ public abstract partial class WidgetWindowBase
         Color customColor = WidgetForegroundSettings.ResolveCustomColor(
             Config,
             SettingsService.Settings);
+        bool automatic = mode == WidgetForegroundSettings.ModeAutoBackground &&
+            !highContrast;
+        bool compactPresentationOwnsForeground = automatic &&
+            WidgetShellControl.IsCollapsed &&
+            WidgetShellControl.CompactPresentationOwnsForegroundContract;
+        ElementTheme headerTheme = compactPresentationOwnsForeground
+            ? WidgetShellControl.CompactPresentationForegroundTheme
+            : RootElement.ActualTheme;
         WidgetForegroundPalette basePalette = ResolveForegroundPalette(
             mode,
             customColor,
             RootElement.ActualTheme,
             highContrast);
+        WidgetForegroundPalette headerPalette = headerTheme == RootElement.ActualTheme
+            ? basePalette
+            : ResolveForegroundPalette(
+                mode,
+                customColor,
+                headerTheme,
+                highContrast);
 
         ApplyForegroundBrushes(basePalette);
-        WidgetShellControl.ApplyHeaderForegroundPalette(basePalette);
+        WidgetShellControl.ApplyHeaderForegroundPalette(headerPalette);
         WidgetShellControl.SetGroupTitleForegroundColors(
-            basePalette.Primary,
-            basePalette.Secondary,
-            basePalette.Disabled,
+            headerPalette.Primary,
+            headerPalette.Secondary,
+            headerPalette.Disabled,
             highContrast);
 
-        bool automatic = mode == WidgetForegroundSettings.ModeAutoBackground &&
-            !highContrast;
-        if (automatic && TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface))
+        if (automatic &&
+            !compactPresentationOwnsForeground &&
+            TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface))
         {
             ConfigureAutoForegroundCaptureOptions();
             if (surface.OverlayOpacity >= 1)
@@ -386,6 +401,8 @@ public abstract partial class WidgetWindowBase
                 Config,
                 SettingsService.Settings) != WidgetForegroundSettings.ModeAutoBackground ||
             !CanSampleAutoForeground() ||
+            (WidgetShellControl.IsCollapsed &&
+             WidgetShellControl.CompactPresentationOwnsForegroundContract) ||
             !TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface) ||
             surface.OverlayOpacity >= 1)
         {
@@ -634,6 +651,11 @@ public abstract partial class WidgetWindowBase
             InvalidateAutoForegroundSamples();
         }
     }
+
+    private void WidgetShellControl_CompactForegroundContractChanged(
+        object? sender,
+        EventArgs e) =>
+        QueueAutoForegroundAppearanceRefresh();
 
     private void QueueAutoForegroundAppearanceRefresh()
     {

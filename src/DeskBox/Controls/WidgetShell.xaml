@@ -583,10 +583,28 @@
                 Canvas.ZIndex="120"
                 IsHitTestVisible="False"
                 Visibility="Collapsed">
+                <Border.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.ThemeDictionaries>
+                            <ResourceDictionary x:Key="Light">
+                                <SolidColorBrush x:Key="WidgetCompactHintForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="Dark">
+                                <SolidColorBrush x:Key="WidgetCompactHintForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="Default">
+                                <SolidColorBrush x:Key="WidgetCompactHintForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="HighContrast">
+                                <SolidColorBrush x:Key="WidgetCompactHintForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                            </ResourceDictionary>
+                        </ResourceDictionary.ThemeDictionaries>
+                    </ResourceDictionary>
+                </Border.Resources>
                 <TextBlock
                     x:Name="CompactHintText"
                     FontSize="12"
-                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                    Foreground="{ThemeResource WidgetCompactHintForegroundBrush}"
                     TextTrimming="CharacterEllipsis" />
             </Border>
 

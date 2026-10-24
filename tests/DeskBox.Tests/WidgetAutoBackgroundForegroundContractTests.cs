@@ -165,6 +165,66 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
             "InvalidateAutoForegroundSamples();",
             baseWindow,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "QueueAutoForegroundAppearanceRefresh();",
+            baseWindow,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompactHint_OpaqueSurfaceDoesNotUseTheAdaptiveHeaderBrush()
+    {
+        string shell = Read("src/DeskBox/Controls/WidgetShell.xaml");
+        int hintStart = shell.IndexOf(
+            "x:Name=\"CompactHintPresenter\"",
+            StringComparison.Ordinal);
+        int hintEnd = shell.IndexOf(
+            "x:Name=\"CompactTextContainer\"",
+            hintStart,
+            StringComparison.Ordinal);
+        Assert.True(hintStart >= 0 && hintEnd > hintStart);
+        string hint = shell[hintStart..hintEnd];
+
+        Assert.Contains("WidgetCompactHintForegroundBrush", hint, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"HighContrast\"", hint, StringComparison.Ordinal);
+        Assert.Contains("SystemColorWindowTextColor", hint, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Foreground=\"{ThemeResource TextFillColorPrimaryBrush}\"",
+            hint,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FullBleedCompactPresentation_GatesDesktopSamplingAndUsesItsOwnTheme()
+    {
+        string shellCode = Read("src/DeskBox/Controls/WidgetShell.xaml.cs");
+        string foreground = Read("src/DeskBox/Views/WidgetWindowBase.Foreground.cs");
+
+        Assert.Contains(
+            "CompactPresentationOwnsForegroundContract",
+            shellCode,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "CompactPresentationForegroundTheme",
+            shellCode,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "CompactForegroundContractChanged",
+            shellCode,
+            StringComparison.Ordinal);
+
+        Assert.Contains(
+            "!compactPresentationOwnsForeground",
+            foreground,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "WidgetShellControl.CompactPresentationForegroundTheme",
+            foreground,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "WidgetShellControl.CompactPresentationOwnsForegroundContract",
+            foreground,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -206,11 +266,11 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
         Assert.Equal(
             "Automatic background contrast",
             englishRoot.GetProperty("Settings.WidgetForeground.AutoBackground").GetString());
-        string description = englishRoot.GetProperty(
+        string englishDescription = englishRoot.GetProperty(
             "Settings.WidgetForeground.Description").GetString()!;
-        Assert.Contains("titles", description, StringComparison.Ordinal);
-        Assert.Contains("monochrome controls", description, StringComparison.Ordinal);
-        Assert.Contains("file names", description, StringComparison.Ordinal);
+        Assert.Contains("titles", englishDescription, StringComparison.Ordinal);
+        Assert.Contains("monochrome controls", englishDescription, StringComparison.Ordinal);
+        Assert.Contains("file names", englishDescription, StringComparison.Ordinal);
     }
 
     [Fact]

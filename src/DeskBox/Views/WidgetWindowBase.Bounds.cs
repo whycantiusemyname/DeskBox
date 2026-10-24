@@ -105,6 +105,10 @@ public abstract partial class WidgetWindowBase
         InitializeWidgetGrouping();
         WidgetShellControl.HostedContentChanged -= WidgetShellControl_HostedContentChanged;
         WidgetShellControl.HostedContentChanged += WidgetShellControl_HostedContentChanged;
+        WidgetShellControl.CompactForegroundContractChanged -=
+            WidgetShellControl_CompactForegroundContractChanged;
+        WidgetShellControl.CompactForegroundContractChanged +=
+            WidgetShellControl_CompactForegroundContractChanged;
 
         RootElement.Loaded += (_, _) =>
         {

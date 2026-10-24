@@ -237,9 +237,14 @@ public abstract partial class WidgetWindowBase : Window
     protected virtual void OnCompactVisualStateChanged(bool collapsed)
     {
         // The expanded header/body sample regions and the compact chrome are
-        // different rectangles; drop cached luminance so the next sampling
-        // tick evaluates the newly visible state.
+        // different rectangles; drop cached luminance and re-evaluate the
+        // compact foreground contract immediately.
         InvalidateAutoForegroundSamples();
+        if (WidgetForegroundSettings.ResolveMode(Config, SettingsService.Settings) ==
+            WidgetForegroundSettings.ModeAutoBackground)
+        {
+            QueueAutoForegroundAppearanceRefresh();
+        }
     }
 
     /// <summary>Whether to queue backdrop refresh after loading.</summary>
@@ -324,6 +329,8 @@ public abstract partial class WidgetWindowBase : Window
         RemoveDesktopPinnedPointerRouting();
         RemoveDesktopPinnedActivationGuard();
         WidgetShellControl.HostedContentChanged -= WidgetShellControl_HostedContentChanged;
+        WidgetShellControl.CompactForegroundContractChanged -=
+            WidgetShellControl_CompactForegroundContractChanged;
         CleanupWidgetGrouping();
         CleanupWidgetCollapse();
         try { TrayAnimation?.Dispose(); }
