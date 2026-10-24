@@ -280,13 +280,16 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
     /// brushes. Both cached layouts are updated so mode switches cannot revive
     /// a recycled label's previous local foreground.
     /// </summary>
-    internal void SetAdaptiveNameForeground(bool? preferWhite)
+    internal void SetAdaptiveNameForeground(
+        bool? preferWhite,
+        TextBlock? additionalNameText = null)
     {
         if (preferWhite is null)
         {
             _adaptiveNamePrefersWhite = null;
             _iconItemNameText?.ClearValue(TextBlock.ForegroundProperty);
             _listItemNameText?.ClearValue(TextBlock.ForegroundProperty);
+            additionalNameText?.ClearValue(TextBlock.ForegroundProperty);
             return;
         }
 
@@ -299,7 +302,9 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
         if (_adaptiveNamePrefersWhite == preferWhite &&
             activeName is not null &&
             existingBrush is not null &&
-            ReferenceEquals(activeName.Foreground, existingBrush))
+            ReferenceEquals(activeName.Foreground, existingBrush) &&
+            (additionalNameText is null ||
+             ReferenceEquals(additionalNameText.Foreground, existingBrush)))
         {
             return;
         }
@@ -335,6 +340,11 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
         else if (_listItemNameText is not null)
         {
             _listItemNameText.Foreground = brush;
+        }
+
+        if (additionalNameText is not null)
+        {
+            additionalNameText.Foreground = brush;
         }
     }
 

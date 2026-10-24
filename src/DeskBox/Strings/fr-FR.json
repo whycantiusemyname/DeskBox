@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "L’organisation du bureau n’a pas pu être annulée. Réessayez plus tard.",
   "Common.OperationFailedRetry": "L’opération n’a pas pu être terminée. Veuillez réessayer.",
   "Settings.WidgetForeground.Title": "Premier plan du widget",
-  "Settings.WidgetForeground.Description": "Adapte la couleur des noms de fichiers au papier peint du bureau uniquement pour les widgets de fichiers transparents à fond uni. Les images personnalisées et les matériaux Acrylic/Mica utilisent la couleur du thème.",
+  "Settings.WidgetForeground.Description": "Choisissez la couleur de premier plan des widgets : suivre le thème du logiciel, utiliser une couleur claire ou sombre, définir une couleur personnalisée ou adapter les noms de fichiers au papier peint du bureau. Le contraste automatique est réservé aux widgets de fichiers transparents à fond uni ; les images personnalisées et les matériaux Acrylic/Mica utilisent la couleur du thème.",
   "Settings.WidgetForeground.FollowTheme": "Suivre le thème de l’application",
   "Settings.WidgetForeground.Light": "Premier plan clair",
   "Settings.WidgetForeground.Dark": "Premier plan sombre",

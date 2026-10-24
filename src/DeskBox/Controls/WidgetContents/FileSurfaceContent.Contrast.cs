@@ -2,6 +2,7 @@ using DeskBox.Helpers;
 using DeskBox.Models;
 using DeskBox.Platform;
 using DeskBox.Services;
+using DeskBox.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -19,7 +20,6 @@ public sealed partial class FileSurfaceContent
     private IDisposable? _wallpaperContrastLease;
     private AccessibilitySettings? _contrastAccessibilitySettings;
     private bool _isContrastSurfaceLoaded;
-    private bool _adaptiveContrastSamplePending;
 
     internal void RefreshAdaptiveFilenameContrast() =>
         UpdateAdaptiveFilenameContrast();
@@ -80,19 +80,7 @@ public sealed partial class FileSurfaceContent
 
     private void AdaptiveContrastTimer_Tick(object? sender, object e)
     {
-        _adaptiveContrastSamplePending = false;
         SampleAdaptiveFilenameContrast();
-    }
-
-    private void QueueAdaptiveFilenameContrastSample()
-    {
-        if (_adaptiveContrastTimer?.IsEnabled == true)
-        {
-            // Container realization and recycling can raise many load and
-            // DataContext events in one turn. Defer the scan to the shared
-            // 150ms geometry timer so those events collapse into one pass.
-            _adaptiveContrastSamplePending = true;
-        }
     }
 
     private void SampleAdaptiveFilenameContrast()
@@ -118,6 +106,7 @@ public sealed partial class FileSurfaceContent
         bool hasSolidWidgetBackground = false;
         double luminanceOverlayOpacity = 0;
         Color luminanceOverlayColor = default;
+        bool expandedNameVisible = false;
         if (WidgetBackgroundCustomization.GetImageFileNameOverride(Config) is not null)
         {
             ResetAdaptiveFilenameLabels();
@@ -170,12 +159,27 @@ public sealed partial class FileSurfaceContent
             }
 
             TextBlock name = surface.ItemNameText;
-            if (name.Visibility != Visibility.Visible ||
-                !TryGetVisiblePhysicalBounds(name, FileItemsViewport, out WallpaperContrastRect screenBounds))
+            expandedNameVisible = NameExpansionOverlay.Visibility == Visibility.Visible &&
+                ReferenceEquals(_nameExpansionNameText, name);
+            TextBlock sampledName = expandedNameVisible ? NameExpansionText : name;
+            FrameworkElement samplingViewport = expandedNameVisible &&
+                NameExpansionOverlay.Parent is FrameworkElement expansionHost
+                    ? expansionHost
+                    : FileItemsViewport;
+            if (sampledName.Visibility != Visibility.Visible ||
+                !TryGetVisiblePhysicalBounds(sampledName, samplingViewport, out WallpaperContrastRect screenBounds))
             {
                 ClearAdaptiveFilenameChoice(surface);
                 continue;
             }
+
+            Color selectionOverlayColor = expandedNameVisible
+                ? FileItemSurfaceStyleCache.GetNeutralStateLayer(
+                    Root.ActualTheme == ElementTheme.Dark,
+                    FileItemSurfaceVisualState.Normal,
+                    isSelected: true)
+                : default;
+            double selectionOverlayOpacity = selectionOverlayColor.A / 255d;
 
             double wallpaperLuminance = 0;
             bool wallpaperSampleNeeded = !hasSolidWidgetBackground || luminanceOverlayOpacity < 1;
@@ -184,11 +188,13 @@ public sealed partial class FileSurfaceContent
                 : 0;
             if (_adaptiveNameChoices.TryGetValue(surface, out AdaptiveNameSampleState cached) &&
                 cached.Bounds == screenBounds &&
-                ReferenceEquals(cached.Label, name) &&
+                ReferenceEquals(cached.Label, sampledName) &&
                 cached.WallpaperVersion == wallpaperVersion &&
                 cached.HasSolidWidgetBackground == hasSolidWidgetBackground &&
                 cached.OverlayColor.Equals(luminanceOverlayColor) &&
-                cached.OverlayOpacity.Equals(luminanceOverlayOpacity))
+                cached.OverlayOpacity.Equals(luminanceOverlayOpacity) &&
+                cached.SelectionOverlayColor.Equals(selectionOverlayColor) &&
+                cached.SelectionOverlayOpacity.Equals(selectionOverlayOpacity))
             {
                 continue;
             }
@@ -221,6 +227,16 @@ public sealed partial class FileSurfaceContent
                     : wallpaperLuminance;
             }
 
+            if (selectionOverlayOpacity > 0)
+            {
+                backgroundLuminance = WallpaperContrastPolicy.BlendLuminance(
+                    backgroundLuminance,
+                    selectionOverlayColor.R,
+                    selectionOverlayColor.G,
+                    selectionOverlayColor.B,
+                    selectionOverlayOpacity);
+            }
+
             bool? previousWhite = _adaptiveNameChoices.TryGetValue(
                 surface,
                 out AdaptiveNameSampleState previous)
@@ -229,14 +245,18 @@ public sealed partial class FileSurfaceContent
             bool preferWhite = WallpaperContrastPolicy.PreferWhite(
                 backgroundLuminance,
                 previousWhite);
-            surface.SetAdaptiveNameForeground(preferWhite);
+            surface.SetAdaptiveNameForeground(
+                preferWhite,
+                expandedNameVisible ? sampledName : null);
             _adaptiveNameChoices[surface] = new AdaptiveNameSampleState(
                 screenBounds,
-                name,
+                sampledName,
                 wallpaperVersion,
                 hasSolidWidgetBackground,
                 luminanceOverlayColor,
                 luminanceOverlayOpacity,
+                selectionOverlayColor,
+                selectionOverlayOpacity,
                 preferWhite);
         }
     }
@@ -340,7 +360,6 @@ public sealed partial class FileSurfaceContent
 
     private void StopAdaptiveFilenameContrast(bool clearLabels)
     {
-        _adaptiveContrastSamplePending = false;
         if (_adaptiveContrastTimer is not null)
         {
             _adaptiveContrastTimer.Stop();
@@ -355,18 +374,27 @@ public sealed partial class FileSurfaceContent
 
     private void ResetAdaptiveFilenameLabels()
     {
-        foreach (FileItemSurface surface in _adaptiveNameChoices.Keys.ToArray())
+        foreach ((FileItemSurface surface, AdaptiveNameSampleState state) in _adaptiveNameChoices.ToArray())
         {
-            surface.SetAdaptiveNameForeground(null);
+            surface.SetAdaptiveNameForeground(
+                null,
+                ReferenceEquals(state.Label, NameExpansionText)
+                    ? NameExpansionText
+                    : null);
         }
         _adaptiveNameChoices.Clear();
+        NameExpansionText.ClearValue(TextBlock.ForegroundProperty);
     }
 
     private void ClearAdaptiveFilenameChoice(FileItemSurface surface)
     {
-        if (_adaptiveNameChoices.Remove(surface))
+        if (_adaptiveNameChoices.Remove(surface, out AdaptiveNameSampleState state))
         {
-            surface.SetAdaptiveNameForeground(null);
+            bool clearExpandedLabel = ReferenceEquals(state.Label, NameExpansionText) &&
+                ReferenceEquals(_nameExpansionNameText, surface.ItemNameText);
+            surface.SetAdaptiveNameForeground(
+                null,
+                clearExpandedLabel ? NameExpansionText : null);
         }
     }
 
@@ -377,5 +405,7 @@ public sealed partial class FileSurfaceContent
         bool HasSolidWidgetBackground,
         Color OverlayColor,
         double OverlayOpacity,
+        Color SelectionOverlayColor,
+        double SelectionOverlayOpacity,
         bool PreferWhite);
 }

@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "No se pudo deshacer la organización del escritorio. Inténtalo de nuevo más tarde.",
   "Common.OperationFailedRetry": "No se pudo completar la operación. Inténtalo de nuevo.",
   "Settings.WidgetForeground.Title": "Primer plano del widget",
-  "Settings.WidgetForeground.Description": "Adapta el color de los nombres de archivo al fondo de escritorio solo en widgets de archivos transparentes con fondo sólido. Las imágenes personalizadas y los materiales Acrylic/Mica usan el color del tema.",
+  "Settings.WidgetForeground.Description": "Elige el color de primer plano de los widgets: seguir el tema de la aplicación, usar un color claro u oscuro, elegir un color personalizado o adaptar los nombres de archivo al fondo de escritorio. El contraste automático solo se aplica a widgets de archivos transparentes con fondo sólido; las imágenes personalizadas y Acrylic/Mica usan el color del tema.",
   "Settings.WidgetForeground.FollowTheme": "Seguir el tema de la aplicación",
   "Settings.WidgetForeground.Light": "Primer plano claro",
   "Settings.WidgetForeground.Dark": "Primer plano oscuro",

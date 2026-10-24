@@ -72,7 +72,7 @@ internal static class WallpaperContrastPolicy
         if (sourceWidth <= 0 || sourceHeight <= 0 || monitorBounds.Width <= 0 || monitorBounds.Height <= 0 ||
             !double.IsFinite(screenX) || !double.IsFinite(screenY)) return false;
 
-        WallpaperContrastRect bounds = position == WallpaperPosition.Span
+        WallpaperContrastRect bounds = position is WallpaperPosition.Span or WallpaperPosition.Tile
             ? virtualDesktopBounds
             : monitorBounds;
         if (bounds.Width <= 0 || bounds.Height <= 0) return false;

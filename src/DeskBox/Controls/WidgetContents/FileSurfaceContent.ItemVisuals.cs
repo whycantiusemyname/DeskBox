@@ -120,6 +120,8 @@ public sealed partial class FileSurfaceContent
             return;
         }
 
+        bool sameExpandedLabel = ReferenceEquals(_nameExpansionNameText, nameText);
+
         Border tile = surface.InteractiveBorder;
         Windows.Foundation.Point tileTopLeft = tile
             .TransformToVisual(overlayHost)
@@ -160,6 +162,12 @@ public sealed partial class FileSurfaceContent
         overlay.Height = overlayHeight;
         overlayText.FontSize = nameText.FontSize;
         overlayText.Text = item.Name;
+        if (!isPopoverView && !sameExpandedLabel)
+        {
+            // This TextBlock is reused by successive selections. Do not show
+            // the previous item's adaptive foreground during the next layout.
+            overlayText.ClearValue(TextBlock.ForegroundProperty);
+        }
         overlayText.MaxWidth = double.IsFinite(nameText.MaxWidth)
             ? Math.Max(40, nameText.MaxWidth)
             : Math.Max(40, nameWidth);
@@ -211,6 +219,10 @@ public sealed partial class FileSurfaceContent
         if (overlay is not null)
         {
             overlay.Visibility = Visibility.Collapsed;
+            if (!isPopoverView)
+            {
+                NameExpansionText.ClearValue(TextBlock.ForegroundProperty);
+            }
         }
 
         RestoreNameExpansionSuppression();
@@ -359,7 +371,6 @@ public sealed partial class FileSurfaceContent
             // They must already work during first realization and remain
             // connected when WinUI recycles an item without another Loaded.
             ApplyOpeningStateToSurface(surface);
-            QueueAdaptiveFilenameContrastSample();
         }
 
         if (FileItemSurface.TryGetInteractiveBorder(sender) is { } border)

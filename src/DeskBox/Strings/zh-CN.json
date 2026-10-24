@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "无法撤消桌面整理，请稍后重试。",
   "Common.OperationFailedRetry": "操作无法完成。请重试。",
   "Settings.WidgetForeground.Title": "格子文字",
-  "Settings.WidgetForeground.Description": "仅在透明纯色背景的文件小组件中，根据桌面壁纸调整文件名颜色。自定义图片以及 Acrylic/Mica 材质使用主题颜色。",
+  "Settings.WidgetForeground.Description": "选择小组件前景色：跟随应用主题、使用浅色或深色、设置自定义颜色，或根据桌面壁纸调整文件名颜色。文件名自动对比度仅适用于透明纯色背景的文件小组件；自定义图片以及 Acrylic/Mica 材质使用主题颜色。",
   "Settings.WidgetForeground.FollowTheme": "跟随应用主题",
   "Settings.WidgetForeground.Light": "浅色文字",
   "Settings.WidgetForeground.Dark": "深色文字",

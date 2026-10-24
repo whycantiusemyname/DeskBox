@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "Die Desktoporganisation konnte nicht rückgängig gemacht werden. Versuchen Sie es später erneut.",
   "Common.OperationFailedRetry": "Der Vorgang konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
   "Settings.WidgetForeground.Title": "Widget-Vordergrund",
-  "Settings.WidgetForeground.Description": "Passt die Farbe von Dateinamen nur bei transparenten Datei-Widgets mit einfarbigem Hintergrund an das Desktop-Hintergrundbild an. Bei eigenen Bildern sowie Acrylic- und Mica-Materialien gilt die Themenfarbe.",
+  "Settings.WidgetForeground.Description": "Lege die Vordergrundfarbe der Widgets fest: App-Design folgen, eine helle oder dunkle Farbe verwenden, eine eigene Farbe wählen oder Dateinamen an das Desktop-Hintergrundbild anpassen. Der automatische Dateinamenskontrast gilt nur für transparente Datei-Widgets mit einfarbigem Hintergrund; eigene Bilder sowie Acrylic/Mica-Materialien verwenden die Themenfarbe.",
   "Settings.WidgetForeground.FollowTheme": "App-Design übernehmen",
   "Settings.WidgetForeground.Light": "Heller Vordergrund",
   "Settings.WidgetForeground.Dark": "Dunkler Vordergrund",

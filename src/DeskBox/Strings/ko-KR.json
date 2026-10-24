@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "바탕 화면 정리를 실행 취소할 수 없습니다. 나중에 다시 시도하세요.",
   "Common.OperationFailedRetry": "작업을 완료할 수 없습니다. 다시 시도하세요.",
   "Settings.WidgetForeground.Title": "위젯 텍스트",
-  "Settings.WidgetForeground.Description": "투명한 단색 배경의 파일 위젯에서만 바탕 화면 배경에 맞춰 파일 이름 색을 조정합니다. 사용자 지정 이미지와 Acrylic/Mica 재질은 테마 색을 사용합니다.",
+  "Settings.WidgetForeground.Description": "위젯 전경색을 선택하세요. 앱 테마를 따르거나, 밝거나 어두운 색 또는 사용자 지정 색을 사용하거나, 바탕 화면 배경에 맞춰 파일 이름 색을 조정할 수 있습니다. 파일 이름 자동 대비는 투명한 단색 배경의 파일 위젯에만 적용되며, 사용자 지정 이미지와 Acrylic/Mica 재질은 테마 색을 사용합니다.",
   "Settings.WidgetForeground.FollowTheme": "앱 테마 따르기",
   "Settings.WidgetForeground.Light": "밝은 텍스트",
   "Settings.WidgetForeground.Dark": "어두운 텍스트",

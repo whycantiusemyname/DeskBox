@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "無法復原桌面整理，請稍後再試。",
   "Common.OperationFailedRetry": "無法完成操作。請再試一次。",
   "Settings.WidgetForeground.Title": "格子文字",
-  "Settings.WidgetForeground.Description": "僅在透明純色背景的檔案小工具中，依桌面桌布調整檔案名稱顏色。自訂圖片以及 Acrylic/Mica 材質會使用佈景主題色彩。",
+  "Settings.WidgetForeground.Description": "選擇小工具前景色：跟隨應用程式佈景主題、使用淺色或深色、設定自訂色彩，或依桌面桌布調整檔案名稱色彩。檔案名稱自動對比僅適用於透明純色背景的檔案小工具；自訂圖片以及 Acrylic/Mica 材質會使用佈景主題色彩。",
   "Settings.WidgetForeground.FollowTheme": "跟隨應用程式主題",
   "Settings.WidgetForeground.Light": "淺色文字",
   "Settings.WidgetForeground.Dark": "深色文字",

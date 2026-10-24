@@ -339,7 +339,6 @@ public sealed partial class FileSurfaceContent
                 HideAllNameExpansions();
             }
 
-            QueueAdaptiveFilenameContrastSample();
         }
     }
 

@@ -84,23 +84,37 @@ public sealed class WallpaperContrastPolicyTests
     }
 
     [Fact]
-    public void TryMapWallpaperPoint_TileWrapsNegativeVirtualCoordinates()
+    public void TryMapWallpaperPoint_TileUsesOneVirtualOriginAcrossMonitors()
     {
-        var monitor = new WallpaperContrastRect(-100, 0, 0, 100);
+        var leftMonitor = new WallpaperContrastRect(-100, 0, 0, 100);
+        var rightMonitor = new WallpaperContrastRect(0, 0, 100, 100);
         var virtualDesktop = new WallpaperContrastRect(-100, 0, 100, 100);
 
         Assert.True(WallpaperContrastPolicy.TryMapWallpaperPoint(
             WallpaperPosition.Tile,
-            monitor,
+            leftMonitor,
             virtualDesktop,
             sourceWidth: 64,
             sourceHeight: 32,
-            screenX: -70,
-            screenY: 40,
-            out double sourceX,
-            out double sourceY));
-        Assert.Equal(30, sourceX, 6);
-        Assert.Equal(8, sourceY, 6);
+            screenX: -10,
+            screenY: 10,
+            out double leftSourceX,
+            out double leftSourceY));
+        Assert.Equal(26, leftSourceX, 6);
+        Assert.Equal(10, leftSourceY, 6);
+
+        Assert.True(WallpaperContrastPolicy.TryMapWallpaperPoint(
+            WallpaperPosition.Tile,
+            rightMonitor,
+            virtualDesktop,
+            sourceWidth: 64,
+            sourceHeight: 32,
+            screenX: 10,
+            screenY: 10,
+            out double rightSourceX,
+            out double rightSourceY));
+        Assert.Equal(46, rightSourceX, 6);
+        Assert.Equal(10, rightSourceY, 6);
     }
 
     [Fact]

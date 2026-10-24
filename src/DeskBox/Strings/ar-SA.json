@@ -2563,7 +2563,7 @@
   "DesktopOrganization.Undo.FailedBody": "تعذر التراجع عن تنظيم سطح المكتب. حاول مرة أخرى.",
   "Common.OperationFailedRetry": "تعذر إكمال العملية. يُرجى المحاولة مرة أخرى.",
   "Settings.WidgetForeground.Title": "مقدمة الأداة",
-  "Settings.WidgetForeground.Description": "يضبط لون أسماء الملفات ليتناسب مع خلفية سطح المكتب في أدوات الملفات الشفافة ذات الخلفية المصمتة فقط. تعود الصور المخصصة ومواد Acrylic وMica إلى لون السمة.",
+  "Settings.WidgetForeground.Description": "اختر لون مقدمة الأدوات: اتبع سمة التطبيق، أو استخدم لونًا فاتحًا أو داكنًا، أو عيّن لونًا مخصصًا، أو طابق لون أسماء الملفات مع خلفية سطح المكتب. يقتصر التباين التلقائي لأسماء الملفات على أدوات الملفات الشفافة ذات الخلفية المصمتة؛ وتستخدم الصور المخصصة ومواد Acrylic وMica لون السمة.",
   "Settings.WidgetForeground.FollowTheme": "اتباع سمة التطبيق",
   "Settings.WidgetForeground.Light": "مقدمة فاتحة",
   "Settings.WidgetForeground.Dark": "مقدمة داكنة",
