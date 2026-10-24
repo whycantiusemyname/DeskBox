@@ -427,6 +427,26 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
     }
 
     [Fact]
+    public void AutoBackgroundMode_IsLocalizedAndPersistsThroughAppearanceEditor()
+    {
+        (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);
+
+        SettingsOption option = Assert.Single(
+            editor.AvailableForegroundModeOptions.Where(choice =>
+                Equals(choice.Value, WidgetForegroundKinds.AutoBackground)));
+        Assert.Equal("Settings.WidgetForeground.AutoBackground", option.DisplayName);
+
+        editor.ForegroundMode = WidgetForegroundKinds.AutoBackground;
+
+        Assert.Equal(
+            WidgetForegroundKinds.AutoBackground,
+            editor.ForegroundMode);
+        Assert.Equal(
+            WidgetForegroundKinds.AutoBackground,
+            settings.Settings.WidgetShell.WidgetForegroundMode);
+    }
+
+    [Fact]
     public void DefaultSizeEdits_NormalizeReenterAndLetTheCoordinatorSave()
     {
         (SettingsService settings, AppearanceSettingsViewModel editor) = CreateEditor(_root);

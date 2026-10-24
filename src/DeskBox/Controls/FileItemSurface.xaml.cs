@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.UI;
 
 namespace DeskBox.Controls;
 
@@ -68,6 +69,9 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
     private FrameworkElement? _iconIconHost;
     private FrameworkElement? _listIconHost;
     private FrameworkElement? _listTextHost;
+    private SolidColorBrush? _adaptiveWhiteNameBrush;
+    private SolidColorBrush? _adaptiveDarkNameBrush;
+    private bool? _adaptiveNamePrefersWhite;
 
     public FileItemSurface()
     {
@@ -267,6 +271,70 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
             return Mode == FileItemSurfaceMode.List
                 ? _listItemNameText!
                 : _iconItemNameText!;
+        }
+    }
+
+    /// <summary>
+    /// Applies or clears the wallpaper-adaptive foreground for this item's
+    /// filename only. Detail text and the rest of the widget keep their theme
+    /// brushes. Both cached layouts are updated so mode switches cannot revive
+    /// a recycled label's previous local foreground.
+    /// </summary>
+    internal void SetAdaptiveNameForeground(bool? preferWhite)
+    {
+        if (preferWhite is null)
+        {
+            _adaptiveNamePrefersWhite = null;
+            _iconItemNameText?.ClearValue(TextBlock.ForegroundProperty);
+            _listItemNameText?.ClearValue(TextBlock.ForegroundProperty);
+            return;
+        }
+
+        TextBlock? activeName = Mode == FileItemSurfaceMode.Icon
+            ? _iconItemNameText
+            : _listItemNameText;
+        SolidColorBrush? existingBrush = preferWhite.Value
+            ? _adaptiveWhiteNameBrush
+            : _adaptiveDarkNameBrush;
+        if (_adaptiveNamePrefersWhite == preferWhite &&
+            activeName is not null &&
+            existingBrush is not null &&
+            ReferenceEquals(activeName.Foreground, existingBrush))
+        {
+            return;
+        }
+
+        Color color = preferWhite.Value
+            ? Color.FromArgb(0xFF, 0xF7, 0xF7, 0xF7)
+            : Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A);
+        SolidColorBrush brush;
+        if (preferWhite.Value)
+        {
+            _adaptiveWhiteNameBrush ??= new SolidColorBrush(color);
+            if (!_adaptiveWhiteNameBrush.Color.Equals(color))
+            {
+                _adaptiveWhiteNameBrush.Color = color;
+            }
+            brush = _adaptiveWhiteNameBrush;
+        }
+        else
+        {
+            _adaptiveDarkNameBrush ??= new SolidColorBrush(color);
+            if (!_adaptiveDarkNameBrush.Color.Equals(color))
+            {
+                _adaptiveDarkNameBrush.Color = color;
+            }
+            brush = _adaptiveDarkNameBrush;
+        }
+
+        _adaptiveNamePrefersWhite = preferWhite;
+        if (Mode == FileItemSurfaceMode.Icon)
+        {
+            if (_iconItemNameText is not null) _iconItemNameText.Foreground = brush;
+        }
+        else if (_listItemNameText is not null)
+        {
+            _listItemNameText.Foreground = brush;
         }
     }
 
@@ -478,6 +546,7 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
         // item without raising Loaded again. Reset pointer state and ask the
         // host to reapply all item-dependent styling, especially cut opacity.
         _pointerFeedback.ResetForReuse();
+        SetAdaptiveNameForeground(null);
         _visualState = FileItemSurfaceVisualState.Normal;
         SetOpeningState(false, string.Empty);
         SetTransferState(FileTransferPathState.None, string.Empty);

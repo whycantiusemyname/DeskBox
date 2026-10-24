@@ -36,6 +36,10 @@ internal static class WidgetForegroundMenuBuilder
             modeOverride == WidgetForegroundSettings.ModeDark,
             () => applyModeOverride(WidgetForegroundSettings.ModeDark)));
         menu.Items.Add(CreateChoice(
+            localizationService.T("Settings.WidgetForeground.AutoBackground"),
+            modeOverride == WidgetForegroundSettings.ModeAutoBackground,
+            () => applyModeOverride(WidgetForegroundSettings.ModeAutoBackground)));
+        menu.Items.Add(CreateChoice(
             localizationService.T("Widget.Foreground.CustomColor"),
             modeOverride == WidgetForegroundSettings.ModeCustom,
             chooseCustomColor));

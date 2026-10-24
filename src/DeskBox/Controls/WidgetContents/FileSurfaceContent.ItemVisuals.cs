@@ -359,6 +359,7 @@ public sealed partial class FileSurfaceContent
             // They must already work during first realization and remain
             // connected when WinUI recycles an item without another Loaded.
             ApplyOpeningStateToSurface(surface);
+            QueueAdaptiveFilenameContrastSample();
         }
 
         if (FileItemSurface.TryGetInteractiveBorder(sender) is { } border)
@@ -386,6 +387,10 @@ public sealed partial class FileSurfaceContent
             }
 
             _itemSurfaces.Remove(border);
+            if (FileItemSurface.FindOwner(border) is { } surface)
+            {
+                ClearAdaptiveFilenameChoice(surface);
+            }
         }
     }
 

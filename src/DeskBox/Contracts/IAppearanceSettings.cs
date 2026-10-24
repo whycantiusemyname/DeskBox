@@ -124,11 +124,18 @@ public static class WidgetForegroundKinds
     public const string Light = "Light";
     public const string Dark = "Dark";
     public const string Custom = "Custom";
+    public const string AutoBackground = "AutoBackground";
 
     public const string DefaultCustomColorHex = "#F5F5F5";
 
-    public static string NormalizeMode(string? value) =>
-        value is Light or Dark or Custom ? value : FollowTheme;
+    public static string NormalizeMode(string? value)
+    {
+        if (string.Equals(value, Light, StringComparison.OrdinalIgnoreCase)) return Light;
+        if (string.Equals(value, Dark, StringComparison.OrdinalIgnoreCase)) return Dark;
+        if (string.Equals(value, Custom, StringComparison.OrdinalIgnoreCase)) return Custom;
+        if (string.Equals(value, AutoBackground, StringComparison.OrdinalIgnoreCase)) return AutoBackground;
+        return FollowTheme;
+    }
 }
 
 /// <summary>The seven projected fields a layout-density preset writes.</summary>

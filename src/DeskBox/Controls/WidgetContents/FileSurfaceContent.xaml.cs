@@ -251,6 +251,7 @@ public sealed partial class FileSurfaceContent :
         ActualThemeChanged += FileSurfaceContent_ActualThemeChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        _settingsService.SettingsChanged += FileSurfaceContent_SettingsChanged;
         UpdateEmptyState();
     }
 
@@ -278,6 +279,7 @@ public sealed partial class FileSurfaceContent :
         // the leaf only records the handle its shell dialogs and popovers
         // parent to.
         _hostWindowHandle = windowHandle;
+        UpdateAdaptiveFilenameContrast();
     }
 
     internal void SuspendItemContainerTransitionsForHostSwitch()
@@ -390,6 +392,7 @@ public sealed partial class FileSurfaceContent :
         UpdateStackFolderPreviewModes();
         UpdateStackPopoverAppearance();
         UpdateEmptyState();
+        UpdateAdaptiveFilenameContrast();
     }
 
     private void FileSurfaceContent_ActualThemeChanged(
@@ -551,6 +554,7 @@ public sealed partial class FileSurfaceContent :
     internal void OnWindowVisibilityChanged(bool visible)
     {
         _isWindowVisible = visible;
+        UpdateAdaptiveFilenameContrast();
         if (visible)
         {
             _hasBeenWindowVisible = true;
@@ -649,6 +653,8 @@ public sealed partial class FileSurfaceContent :
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _isContrastSurfaceLoaded = true;
+        UpdateAdaptiveFilenameContrast();
         HideInactiveScrollBars();
         ApplySelectionRectangleAppearance();
         UpdateEmptyState();
@@ -656,6 +662,8 @@ public sealed partial class FileSurfaceContent :
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _isContrastSurfaceLoaded = false;
+        UpdateAdaptiveFilenameContrast();
         StopFolderNavigationVisuals();
         CloseStackPopover(releaseImmediately: true);
         StopScrollBarHideTimer();
@@ -6297,6 +6305,9 @@ public sealed partial class FileSurfaceContent :
         CancelPendingSlowClickRename();
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
+        _settingsService.SettingsChanged -= FileSurfaceContent_SettingsChanged;
+        StopAdaptiveFilenameContrast(clearLabels: true);
+        DisposeContrastAccessibilityWatcher();
         UnregisterRenderWindowTracking();
         DisposeScrollBarActivityTracking();
         ActualThemeChanged -= FileSurfaceContent_ActualThemeChanged;

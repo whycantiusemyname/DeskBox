@@ -32,7 +32,10 @@ public abstract partial class WidgetWindowBase
         ApplyForegroundBrushes(palette);
         WidgetShellControl.SetGroupTitleForegroundColors(
             palette.Primary, palette.Secondary, palette.Disabled, highContrast);
+        OnWidgetForegroundAppearanceApplied();
     }
+
+    protected virtual void OnWidgetForegroundAppearanceApplied() { }
 
     protected void SetWidgetForegroundModeOverride(string? mode)
     {
@@ -238,6 +241,8 @@ public abstract partial class WidgetWindowBase
                 Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A),
             WidgetForegroundSettings.ModeCustom =>
                 Color.FromArgb(0xFF, customColor.R, customColor.G, customColor.B),
+            // AutoBackground changes file-name labels only. Every other widget
+            // foreground continues to follow the active theme palette.
             _ when actualTheme == ElementTheme.Light =>
                 Color.FromArgb(0xFF, 0x1A, 0x1A, 0x1A),
             _ => Color.FromArgb(0xFF, 0xF7, 0xF7, 0xF7)

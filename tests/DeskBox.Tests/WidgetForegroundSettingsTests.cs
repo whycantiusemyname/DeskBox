@@ -102,4 +102,38 @@ public sealed class WidgetForegroundSettingsTests
             config.Metadata[WidgetForegroundSettings.ColorOverrideMetadataKey]);
         Assert.False(WidgetForegroundSettings.NormalizeOverrides(config));
     }
+
+    [Fact]
+    public void AutoBackground_NormalizesAndResolvesWithWidgetOverridePrecedence()
+    {
+        var settings = new AppSettings
+        {
+            WidgetForegroundMode = "autobackground"
+        };
+        var config = new WidgetConfig();
+
+        Assert.True(WidgetForegroundSettings.NormalizeGlobal(settings));
+        Assert.Equal(
+            WidgetForegroundSettings.ModeAutoBackground,
+            settings.WidgetForegroundMode);
+        Assert.Equal(
+            WidgetForegroundSettings.ModeAutoBackground,
+            WidgetForegroundSettings.ResolveMode(config, settings));
+
+        WidgetForegroundSettings.SetModeOverride(
+            config,
+            WidgetForegroundSettings.ModeDark);
+        Assert.Equal(
+            WidgetForegroundSettings.ModeDark,
+            WidgetForegroundSettings.ResolveMode(config, settings));
+
+        config.Metadata![WidgetForegroundSettings.ModeOverrideMetadataKey] = "autobackground";
+        Assert.True(WidgetForegroundSettings.NormalizeOverrides(config));
+        Assert.Equal(
+            WidgetForegroundSettings.ModeAutoBackground,
+            config.Metadata[WidgetForegroundSettings.ModeOverrideMetadataKey]);
+        Assert.Equal(
+            WidgetForegroundSettings.ModeAutoBackground,
+            WidgetForegroundSettings.ResolveMode(config, settings));
+    }
 }

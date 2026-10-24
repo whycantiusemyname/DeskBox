@@ -714,6 +714,14 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
         }
     }
 
+    protected override void OnWidgetForegroundAppearanceApplied()
+    {
+        if (CurrentContent is FileWidgetContentAdapter file)
+        {
+            file.RefreshAdaptiveFilenameContrast();
+        }
+    }
+
     // ── IDesktopWidgetWindow implementation ────────────────────
 
     public IntPtr WindowHandle => HWnd;

@@ -48,7 +48,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
         WidgetForegroundKinds.FollowTheme,
         WidgetForegroundKinds.Light,
         WidgetForegroundKinds.Dark,
-        WidgetForegroundKinds.Custom
+        WidgetForegroundKinds.Custom,
+        WidgetForegroundKinds.AutoBackground
     ];
     private static readonly string[] BorderColorModes =
     [
@@ -630,7 +631,8 @@ public sealed partial class AppearanceSettingsViewModel : ObservableObject
                 "Settings.WidgetForeground.FollowTheme",
                 "Settings.WidgetForeground.Light",
                 "Settings.WidgetForeground.Dark",
-                "Settings.WidgetForeground.Custom"
+                "Settings.WidgetForeground.Custom",
+                "Settings.WidgetForeground.AutoBackground"
             ];
             _cachedForegroundModeNames ??= keys.Select(key => _localize(key)).ToArray();
             var options = new SettingsOption[ForegroundModes.Length];

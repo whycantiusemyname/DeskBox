@@ -5,13 +5,23 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
     name: Build and test
     runs-on: windows-latest
+    timeout-minutes: 60
     env:
       RestoreLockedMode: true
+      BuildOfflineArtifact: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.repository != 'Tianyu199509/DeskBox') }}
 
     steps:
       - name: Checkout
@@ -29,10 +39,38 @@ jobs:
             exit 1
           }
 
-      - name: Setup .NET
+      - name: Setup pinned .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
+
+      - name: Setup pinned Rust toolchain
+        if: env.BuildOfflineArtifact == 'true'
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Verify pinned .NET and Rust toolchains
+        if: env.BuildOfflineArtifact == 'true'
+        shell: pwsh
+        run: |
+          $dotnetVersion = (dotnet --version).Trim()
+          if ($dotnetVersion -ne '10.0.402') {
+            throw "Expected .NET SDK 10.0.402, found '$dotnetVersion'."
+          }
+
+          $rustcDetails = rustc -vV | Out-String
+          if ($rustcDetails -notmatch '(?m)^release: 1\.96\.0\s*$' -or
+              $rustcDetails -notmatch '(?m)^host: x86_64-pc-windows-msvc\s*$') {
+            throw "Expected Rust 1.96.0 x86_64-pc-windows-msvc; got:`n$rustcDetails"
+          }
+
+          $rustTargetLib = (rustc --print target-libdir --target x86_64-pc-windows-msvc).Trim()
+          if (-not (Test-Path -LiteralPath $rustTargetLib -PathType Container)) {
+            throw "Rust target x86_64-pc-windows-msvc is not installed at '$rustTargetLib'."
+          }
+          dotnet --info
+          cargo --version
 
       - name: Restore
         shell: pwsh
@@ -46,9 +84,68 @@ jobs:
         timeout-minutes: 10
         run: dotnet test .\tests\DeskBox.Tests\DeskBox.Tests.csproj --configuration Release --no-restore -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:WindowsAppSdkBootstrapInitialize=false --blame-hang --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx" -v:minimal
 
+      - name: Verify complete feature test results
+        if: always() && env.BuildOfflineArtifact == 'true'
+        shell: pwsh
+        run: |
+          $resultFiles = @(Get-ChildItem -LiteralPath '.\tests\DeskBox.Tests\TestResults' -Filter '*.trx' -File -ErrorAction SilentlyContinue)
+          if ($resultFiles.Count -eq 0) {
+            throw 'The feature run produced no TRX test results.'
+          }
+
+          foreach ($resultFile in $resultFiles) {
+            [xml]$result = Get-Content -LiteralPath $resultFile.FullName -Raw
+            $counters = $result.TestRun.ResultSummary.Counters
+            if ($null -eq $counters) {
+              throw "The TRX result has no completion counters: '$($resultFile.FullName)'."
+            }
+            $total = [int]$counters.total
+            $passed = [int]$counters.passed
+            Write-Host "$($resultFile.Name): $passed/$total passed."
+            if ($total -eq 0 -or $passed -ne $total) {
+              throw "The feature run did not complete with every test passing in '$($resultFile.FullName)'."
+            }
+          }
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: tests/DeskBox.Tests/TestResults/**/*.trx
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish self-contained x64 Native AOT build
+        if: env.BuildOfflineArtifact == 'true'
+        shell: pwsh
+        run: .\scripts\publish-aot-retail.ps1 -Platform x64
+
+      - name: Package runnable offline build
+        if: env.BuildOfflineArtifact == 'true'
+        shell: pwsh
+        run: |
+          $publishDirectory = Join-Path $PWD '.artifacts\aot-retail\win-x64\publish'
+          $summaryPath = Join-Path $PWD '.artifacts\aot-retail\win-x64\summary.json'
+          if (-not (Test-Path -LiteralPath (Join-Path $publishDirectory 'DeskBox.exe') -PathType Leaf)) {
+            throw "The self-contained DeskBox.exe was not produced in '$publishDirectory'."
+          }
+          if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) {
+            throw "The Native AOT publish summary is missing: '$summaryPath'."
+          }
+
+          $archivePath = Join-Path $PWD '.artifacts\DeskBox-x64-offline.zip'
+          Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $archivePath -CompressionLevel Optimal
+          Get-FileHash -LiteralPath $archivePath -Algorithm SHA256 | Format-List | Out-String | Write-Host
+
+      - name: Upload runnable offline x64 build
+        if: env.BuildOfflineArtifact == 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskBox-x64-offline
+          path: |
+            .artifacts/DeskBox-x64-offline.zip
+            .artifacts/aot-retail/win-x64/summary.json
+            .artifacts/aot-retail/win-x64/publish.log
+          if-no-files-found: error
+          retention-days: 14

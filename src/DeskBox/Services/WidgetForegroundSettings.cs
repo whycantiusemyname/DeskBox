@@ -15,6 +15,7 @@ public static class WidgetForegroundSettings
     public const string ModeLight = Contracts.WidgetForegroundKinds.Light;
     public const string ModeDark = Contracts.WidgetForegroundKinds.Dark;
     public const string ModeCustom = Contracts.WidgetForegroundKinds.Custom;
+    public const string ModeAutoBackground = Contracts.WidgetForegroundKinds.AutoBackground;
 
     public const string DefaultCustomColorHex = Contracts.WidgetForegroundKinds.DefaultCustomColorHex;
 
@@ -36,6 +37,11 @@ public static class WidgetForegroundSettings
         if (string.Equals(value, ModeCustom, StringComparison.OrdinalIgnoreCase))
         {
             return ModeCustom;
+        }
+
+        if (string.Equals(value, ModeAutoBackground, StringComparison.OrdinalIgnoreCase))
+        {
+            return ModeAutoBackground;
         }
 
         return ModeFollowTheme;
@@ -191,5 +197,6 @@ public static class WidgetForegroundSettings
         string.Equals(value, ModeFollowTheme, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(value, ModeLight, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(value, ModeDark, StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(value, ModeCustom, StringComparison.OrdinalIgnoreCase);
+        string.Equals(value, ModeCustom, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, ModeAutoBackground, StringComparison.OrdinalIgnoreCase);
 }
