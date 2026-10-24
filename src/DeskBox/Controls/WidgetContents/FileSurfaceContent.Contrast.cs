@@ -127,14 +127,14 @@ public sealed partial class FileSurfaceContent
             return;
         }
         else if (WindowsCompatibilityService.ResolveWidgetMaterialType(
-                     settings.WidgetMaterialType) == SettingsService.WidgetMaterialTypeSolid)
+                     settings.WidgetShell.WidgetMaterialType) == SettingsService.WidgetMaterialTypeSolid)
         {
             var accent = App.Current.ThemeService?.GetEffectiveAccentColor()
                 ?? AccentColorHelper.DefaultAccentColor;
             luminanceOverlayColor = WidgetMaterialVisualCalculator.BuildContentSolidSurfaceColor(
                 Root.ActualTheme == ElementTheme.Dark,
                 accent,
-                settings.WidgetOpacity);
+                settings.WidgetShell.WidgetOpacity);
             luminanceOverlayOpacity = luminanceOverlayColor.A / 255d;
             hasSolidWidgetBackground = true;
         }
