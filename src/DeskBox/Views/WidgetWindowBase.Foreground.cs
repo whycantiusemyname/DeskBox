@@ -366,7 +366,7 @@ public abstract partial class WidgetWindowBase
             PerformanceLogger.RecordTransientUiTimerCreated();
         }
 
-        if (!_autoForegroundTimer.IsEnabled)
+        if (!_autoForegroundTimer.IsRunning)
         {
             _autoForegroundTimer.Start();
         }

@@ -122,7 +122,10 @@ internal static class WallpaperHostCaptureBackend
                 if (maps.ContainsKey(monitor) ||
                     !monitorCandidates.TryGetValue(monitor, out List<WallpaperHostWindowCandidate>? options) ||
                     !options.Contains(next) ||
-                    !capturedByMonitor.TryGetValue(monitor, out WallpaperDynamicBitmap map))
+                    !capturedByMonitor.TryGetValue(
+                        monitor,
+                        out WallpaperDynamicBitmap? map) ||
+                    map is null)
                 {
                     continue;
                 }

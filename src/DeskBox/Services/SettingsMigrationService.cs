@@ -1,3 +1,4 @@
+using DeskBox.Contracts;
 using DeskBox.Models;
 using System.Text.Json;
 
