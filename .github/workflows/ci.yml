@@ -121,6 +121,26 @@ jobs:
         shell: pwsh
         run: .\scripts\publish-aot-retail.ps1 -Platform x64
 
+      - name: Prepare executable update artifact
+        if: env.BuildOfflineArtifact == 'true'
+        shell: pwsh
+        run: |
+          $publishDirectory = Join-Path $PWD '.artifacts\aot-retail\win-x64\publish'
+          $executablePath = Join-Path $publishDirectory 'DeskBox.exe'
+          if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
+            throw "The self-contained DeskBox.exe was not produced in '$publishDirectory'."
+          }
+
+          $updateDirectory = Join-Path $PWD '.artifacts\executable-update'
+          New-Item -ItemType Directory -Path $updateDirectory -Force | Out-Null
+          Copy-Item -LiteralPath $executablePath -Destination (Join-Path $updateDirectory 'DeskBox.exe') -Force
+          $manifest = [ordered]@{
+            gitSha = (git rev-parse HEAD).Trim()
+            compatibleRuntimeVersion = '2.5.1'
+            exeSha256 = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $updateDirectory 'manifest.json') -Encoding utf8NoBOM
+
       - name: Package runnable offline build
         if: env.BuildOfflineArtifact == 'true'
         shell: pwsh
@@ -148,4 +168,14 @@ jobs:
             .artifacts/aot-retail/win-x64/summary.json
             .artifacts/aot-retail/win-x64/publish.log
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload x64 executable update
+        if: env.BuildOfflineArtifact == 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskBox-x64-executable-update
+          path: .artifacts/executable-update/
+          if-no-files-found: error
+          compression-level: 9
           retention-days: 14

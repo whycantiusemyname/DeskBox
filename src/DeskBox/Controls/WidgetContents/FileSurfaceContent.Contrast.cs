@@ -20,6 +20,10 @@ public sealed partial class FileSurfaceContent
     private IDisposable? _wallpaperContrastLease;
     private AccessibilitySettings? _contrastAccessibilitySettings;
     private bool _isContrastSurfaceLoaded;
+    private string? _lastContrastGateSignature;
+    private DateTime _lastContrastGateDiagnosticUtc = DateTime.MinValue;
+    private string? _lastContrastPassSignature;
+    private DateTime _lastContrastPassDiagnosticUtc = DateTime.MinValue;
 
     internal void RefreshAdaptiveFilenameContrast() =>
         UpdateAdaptiveFilenameContrast();
@@ -54,6 +58,28 @@ public sealed partial class FileSurfaceContent
             _hostWindowHandle != IntPtr.Zero &&
             _contrastAccessibilitySettings?.HighContrast != true &&
             !WindowsCompatibilityService.IsHighContrast;
+        string gateReason = !isAutomatic
+            ? "mode-disabled"
+            : !_isContrastSurfaceLoaded
+                ? "surface-unloaded"
+                : !_isWindowVisible
+                    ? "window-hidden"
+                    : _hostWindowHandle == IntPtr.Zero
+                        ? "missing-window-handle"
+                        : _contrastAccessibilitySettings?.HighContrast == true ||
+                          WindowsCompatibilityService.IsHighContrast
+                            ? "high-contrast"
+                            : "active";
+        LogAdaptiveContrastDiagnostic(
+            $"surface={GetHashCode():X}, gate mode={WidgetForegroundSettings.ResolveMode(Config, _settingsService.Settings)} " +
+            $"override={(WidgetForegroundSettings.GetModeOverride(Config) is null ? "global" : "widget")}, " +
+            $"reason={gateReason}, loaded={_isContrastSurfaceLoaded}, visible={_isWindowVisible}, " +
+            $"handle={_hostWindowHandle != IntPtr.Zero}, highContrast=" +
+            $"{(_contrastAccessibilitySettings?.HighContrast == true || WindowsCompatibilityService.IsHighContrast)}, " +
+            $"realized={_itemSurfaces.Count}, {WallpaperContrastService.GetDiagnosticStatus()}",
+            $"gate:{isAutomatic}:{_isContrastSurfaceLoaded}:{_isWindowVisible}:" +
+            $"{_hostWindowHandle != IntPtr.Zero}:{gateReason}",
+            isGate: true);
         if (!shouldSample)
         {
             StopAdaptiveFilenameContrast(clearLabels: true);
@@ -91,6 +117,12 @@ public sealed partial class FileSurfaceContent
             _hostWindowHandle == IntPtr.Zero ||
             WindowsCompatibilityService.IsHighContrast)
         {
+            LogAdaptiveContrastDiagnostic(
+                $"pass skipped reason=surface-state loaded={_isContrastSurfaceLoaded}, " +
+                $"visible={_isWindowVisible}, handle={_hostWindowHandle != IntPtr.Zero}, " +
+                $"highContrast={WindowsCompatibilityService.IsHighContrast}, realized={_itemSurfaces.Count}",
+                $"pass-gate:{_isDisposed}:{_isContrastSurfaceLoaded}:{_isWindowVisible}:" +
+                $"{_hostWindowHandle != IntPtr.Zero}:{WindowsCompatibilityService.IsHighContrast}");
             ResetAdaptiveFilenameLabels();
             return;
         }
@@ -99,16 +131,32 @@ public sealed partial class FileSurfaceContent
         if (WidgetForegroundSettings.ResolveMode(Config, settings) !=
             WidgetForegroundSettings.ModeAutoBackground)
         {
+            LogAdaptiveContrastDiagnostic(
+                $"pass skipped reason=mode-disabled mode={WidgetForegroundSettings.ResolveMode(Config, settings)}, " +
+                $"realized={_itemSurfaces.Count}",
+                $"pass-mode:{WidgetForegroundSettings.ResolveMode(Config, settings)}");
             ResetAdaptiveFilenameLabels();
             return;
         }
 
+        int realized = _itemSurfaces.Count;
+        int eligible = 0;
+        int whiteApplied = 0;
+        int darkApplied = 0;
+        int cacheHits = 0;
+        int skippedSurface = 0;
+        int skippedBounds = 0;
+        int skippedUnavailable = 0;
+        string? sampleExample = null;
         bool hasSolidWidgetBackground = false;
         double luminanceOverlayOpacity = 0;
         Color luminanceOverlayColor = default;
         bool expandedNameVisible = false;
         if (WidgetBackgroundCustomization.GetImageFileNameOverride(Config) is not null)
         {
+            LogAdaptiveContrastDiagnostic(
+                $"pass skipped reason=widget-image-override, realized={realized}",
+                "pass:widget-image-override");
             ResetAdaptiveFilenameLabels();
             return;
         }
@@ -123,6 +171,9 @@ public sealed partial class FileSurfaceContent
         else if (WidgetBackgroundCustomization.IsGlobalImageBackgroundActive(settings))
         {
             // Custom image backdrops are not represented by the desktop map.
+            LogAdaptiveContrastDiagnostic(
+                $"pass skipped reason=global-image-background, realized={realized}",
+                "pass:global-image-background");
             ResetAdaptiveFilenameLabels();
             return;
         }
@@ -141,6 +192,10 @@ public sealed partial class FileSurfaceContent
         else
         {
             // Acrylic and Mica do not expose a stable, known color overlay.
+            LogAdaptiveContrastDiagnostic(
+                $"pass skipped reason=unsupported-material material={settings.WidgetShell.WidgetMaterialType}, " +
+                $"realized={realized}",
+                $"pass:unsupported-material:{settings.WidgetShell.WidgetMaterialType}");
             ResetAdaptiveFilenameLabels();
             return;
         }
@@ -154,6 +209,7 @@ public sealed partial class FileSurfaceContent
                 !ReferenceEquals(surface.XamlRoot, Root.XamlRoot) ||
                 surface.Visibility != Visibility.Visible)
             {
+                skippedSurface++;
                 if (surface is not null) ClearAdaptiveFilenameChoice(surface);
                 continue;
             }
@@ -169,9 +225,12 @@ public sealed partial class FileSurfaceContent
             if (sampledName.Visibility != Visibility.Visible ||
                 !TryGetVisiblePhysicalBounds(sampledName, samplingViewport, out WallpaperContrastRect screenBounds))
             {
+                skippedBounds++;
                 ClearAdaptiveFilenameChoice(surface);
                 continue;
             }
+
+            eligible++;
 
             Color selectionOverlayColor = expandedNameVisible
                 ? FileItemSurfaceStyleCache.GetNeutralStateLayer(
@@ -186,7 +245,9 @@ public sealed partial class FileSurfaceContent
             long wallpaperVersion = wallpaperSampleNeeded
                 ? WallpaperContrastService.SnapshotVersion
                 : 0;
-            if (_adaptiveNameChoices.TryGetValue(surface, out AdaptiveNameSampleState cached) &&
+            bool cacheMatches = _adaptiveNameChoices.TryGetValue(
+                surface,
+                out AdaptiveNameSampleState cached) &&
                 cached.Bounds == screenBounds &&
                 ReferenceEquals(cached.Label, sampledName) &&
                 cached.WallpaperVersion == wallpaperVersion &&
@@ -194,8 +255,18 @@ public sealed partial class FileSurfaceContent
                 cached.OverlayColor.Equals(luminanceOverlayColor) &&
                 cached.OverlayOpacity.Equals(luminanceOverlayOpacity) &&
                 cached.SelectionOverlayColor.Equals(selectionOverlayColor) &&
-                cached.SelectionOverlayOpacity.Equals(selectionOverlayOpacity))
+                cached.SelectionOverlayOpacity.Equals(selectionOverlayOpacity);
+            bool cachedForegroundStillApplied = cacheMatches &&
+                surface.HasAdaptiveNameForeground(
+                    cached.PreferWhite,
+                    expandedNameVisible ? sampledName : null);
+            if (WallpaperContrastPolicy.CanReuseSample(
+                    sampleInputsMatch: cacheMatches,
+                    foregroundStillApplied: cachedForegroundStillApplied))
             {
+                cacheHits++;
+                if (cached.PreferWhite) whiteApplied++;
+                else darkApplied++;
                 continue;
             }
 
@@ -203,6 +274,7 @@ public sealed partial class FileSurfaceContent
                 WallpaperContrastService.TrySampleLuminance(screenBounds, out wallpaperLuminance);
             if (wallpaperSampleNeeded && !hasWallpaperSample)
             {
+                skippedUnavailable++;
                 ClearAdaptiveFilenameChoice(surface);
                 continue;
             }
@@ -258,7 +330,58 @@ public sealed partial class FileSurfaceContent
                 selectionOverlayColor,
                 selectionOverlayOpacity,
                 preferWhite);
+            if (preferWhite) whiteApplied++;
+            else darkApplied++;
+            sampleExample ??= $"bounds=({screenBounds.Left:F0},{screenBounds.Top:F0})-" +
+                $"({screenBounds.Right:F0},{screenBounds.Bottom:F0}), " +
+                $"luminance={backgroundLuminance:F3}, foreground={(preferWhite ? "white" : "dark")}";
         }
+
+        LogAdaptiveContrastDiagnostic(
+            $"pass realized={realized}, eligible={eligible}, white={whiteApplied}, dark={darkApplied}, " +
+            $"cacheHits={cacheHits}, skippedSurface={skippedSurface}, skippedBounds={skippedBounds}, " +
+            $"skippedUnavailable={skippedUnavailable}, snapshot={WallpaperContrastService.SnapshotVersion}, " +
+            $"example={sampleExample ?? "none"}, {WallpaperContrastService.GetDiagnosticStatus()}",
+            $"pass:{realized}:{eligible}:{whiteApplied}:{darkApplied}:{skippedSurface}:" +
+            $"{skippedBounds}:{skippedUnavailable}:{WallpaperContrastService.SnapshotVersion}");
+    }
+
+    private void LogAdaptiveContrastDiagnostic(
+        string details,
+        string signature,
+        bool isGate = false)
+    {
+        DateTime now = DateTime.UtcNow;
+        string? previousSignature = isGate
+            ? _lastContrastGateSignature
+            : _lastContrastPassSignature;
+        DateTime previousUtc = isGate
+            ? _lastContrastGateDiagnosticUtc
+            : _lastContrastPassDiagnosticUtc;
+        if (!isGate && previousUtc != DateTime.MinValue &&
+            now - previousUtc < TimeSpan.FromSeconds(5))
+        {
+            return;
+        }
+
+        if (string.Equals(signature, previousSignature, StringComparison.Ordinal) &&
+            now - previousUtc < TimeSpan.FromSeconds(60))
+        {
+            return;
+        }
+
+        if (isGate)
+        {
+            _lastContrastGateSignature = signature;
+            _lastContrastGateDiagnosticUtc = now;
+        }
+        else
+        {
+            _lastContrastPassSignature = signature;
+            _lastContrastPassDiagnosticUtc = now;
+        }
+
+        App.Log($"[WallpaperContrast] surface={GetHashCode():X}, {details}");
     }
 
     private bool TryGetVisiblePhysicalBounds(
@@ -293,11 +416,23 @@ public sealed partial class FileSurfaceContent
             if (visible.Width <= 0 || visible.Height <= 0) return false;
 
             var clientOrigin = default(Win32Helper.POINT);
-            if (!Win32Helper.ClientToScreen(_hostWindowHandle, ref clientOrigin)) return false;
+            if (!Win32Helper.ClientToScreen(_hostWindowHandle, ref clientOrigin))
+            {
+                LogAdaptiveContrastDiagnostic(
+                    "visible-bounds unavailable reason=ClientToScreen-failed",
+                    "bounds-client-to-screen-failed");
+                return false;
+            }
             double scale = Win32Helper.GetDpiScaleForWindow(
                 _hostWindowHandle,
                 viewport.XamlRoot);
-            if (!double.IsFinite(scale) || scale <= 0) return false;
+            if (!double.IsFinite(scale) || scale <= 0)
+            {
+                LogAdaptiveContrastDiagnostic(
+                    $"visible-bounds unavailable reason=invalid-dpi-scale scale={scale}",
+                    $"bounds-invalid-dpi:{scale}");
+                return false;
+            }
 
             screenBounds = new WallpaperContrastRect(
                 clientOrigin.X + (visible.X * scale),
@@ -306,8 +441,12 @@ public sealed partial class FileSurfaceContent
                 clientOrigin.Y + (visible.Y + visible.Height) * scale);
             return screenBounds.Width > 0 && screenBounds.Height > 0;
         }
-        catch
+        catch (Exception ex)
         {
+            LogAdaptiveContrastDiagnostic(
+                $"visible-bounds transform failed exception={ex.GetType().Name}/" +
+                $"0x{unchecked((uint)ex.HResult):X8}",
+                $"bounds-transform:{ex.GetType().Name}:{ex.HResult}");
             return false;
         }
     }
@@ -334,9 +473,13 @@ public sealed partial class FileSurfaceContent
             _contrastAccessibilitySettings.HighContrastChanged +=
                 ContrastAccessibilitySettings_HighContrastChanged;
         }
-        catch
+        catch (Exception ex)
         {
             _contrastAccessibilitySettings = null;
+            LogAdaptiveContrastDiagnostic(
+                $"accessibility watcher unavailable exception={ex.GetType().Name}/" +
+                $"0x{unchecked((uint)ex.HResult):X8}",
+                $"accessibility-watcher:{ex.GetType().Name}:{ex.HResult}");
         }
     }
 

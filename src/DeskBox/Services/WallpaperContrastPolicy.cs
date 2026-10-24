@@ -30,6 +30,14 @@ internal readonly record struct WallpaperContrastRect(
 /// <summary>Pure color and placement math used by wallpaper contrast sampling.</summary>
 internal static class WallpaperContrastPolicy
 {
+    public static bool CanReuseSample(
+        bool sampleInputsMatch,
+        bool foregroundStillApplied) => sampleInputsMatch && foregroundStillApplied;
+
+    public static bool HasUsableMonitors(int usableMonitorCount, int reportedMonitorCount) =>
+        usableMonitorCount > 0 && reportedMonitorCount > 0 &&
+        usableMonitorCount <= reportedMonitorCount;
+
     public static double SrgbLuminance(byte red, byte green, byte blue)
     {
         static double Linear(byte value)

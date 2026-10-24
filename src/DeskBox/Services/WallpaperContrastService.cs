@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using DeskBox.Platform;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
@@ -21,21 +22,39 @@ internal static class WallpaperContrastService
     private static CancellationTokenSource? s_refreshCancellation;
     private static Task? s_refreshWorker;
     private static int s_clients;
+    private static string? s_lastRefreshError;
 
     public static IDisposable Acquire()
     {
+        int clients;
+        bool started = false;
         lock (s_gate)
         {
             s_clients++;
+            clients = s_clients;
             if (s_clients == 1)
             {
                 s_refreshCancellation = new CancellationTokenSource();
                 CancellationToken token = s_refreshCancellation.Token;
                 s_refreshWorker = Task.Run(() => RefreshLoopAsync(token));
+                started = true;
             }
         }
 
+        App.Log($"[WallpaperContrast] client acquired clients={clients}, workerStarted={started}");
+
         return new ClientLease();
+    }
+
+    public static string GetDiagnosticStatus()
+    {
+        lock (s_gate)
+        {
+            long version = Volatile.Read(ref s_snapshot)?.Version ?? 0;
+            string worker = s_refreshWorker is { IsCompleted: false } ? "running" : "stopped";
+            string error = Volatile.Read(ref s_lastRefreshError) ?? "none";
+            return $"serviceClients={s_clients}, worker={worker}, snapshot={version}, lastError={error}";
+        }
     }
 
     public static bool TrySampleLuminance(
@@ -95,10 +114,14 @@ internal static class WallpaperContrastService
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
             // A transient COM, file, or decoder failure preserves the last
             // usable map and leaves the independent 60-second retry alive.
+            string error = $"{ex.GetType().Name}/0x{unchecked((uint)ex.HResult):X8}";
+            Volatile.Write(ref s_lastRefreshError, error);
+            App.Log($"[WallpaperContrast] refresh failed error={error}, " +
+                $"snapshot={SnapshotVersion}; retry=60s");
         }
     }
 
@@ -109,6 +132,12 @@ internal static class WallpaperContrastService
             cancellationToken).ConfigureAwait(false);
         if (data is null || cancellationToken.IsCancellationRequested)
         {
+            if (data is null)
+            {
+                Volatile.Write(ref s_lastRefreshError, "desktop-wallpaper-source-unavailable");
+                App.Log($"[WallpaperContrast] refresh produced no snapshot; " +
+                    $"snapshot={SnapshotVersion}; retry=60s");
+            }
             return;
         }
 
@@ -150,11 +179,27 @@ internal static class WallpaperContrastService
 
         if (monitors.Count > 0 && !cancellationToken.IsCancellationRequested)
         {
-            Volatile.Write(ref s_snapshot, new WallpaperSnapshot(
+            var snapshot = new WallpaperSnapshot(
                 data.Position,
                 data.BackgroundColor,
                 monitors.ToArray(),
-                Interlocked.Increment(ref s_snapshotVersion)));
+                Interlocked.Increment(ref s_snapshotVersion));
+            Volatile.Write(ref s_snapshot, snapshot);
+            Volatile.Write(ref s_lastRefreshError, null);
+            string monitorSummary = string.Join(";", data.Monitors.Select(monitor =>
+                $"{monitor.Bounds.Left:F0},{monitor.Bounds.Top:F0}-" +
+                $"{monitor.Bounds.Right:F0},{monitor.Bounds.Bottom:F0}:" +
+                $"{(string.IsNullOrWhiteSpace(monitor.ImagePath) ? "background" : "image" + SafeExtension(monitor.ImagePath))}"));
+            string engine = DetectWallpaperEngine() ? "WallpaperEngine-detected" : "none-detected";
+            App.Log($"[WallpaperContrast] snapshot version={snapshot.Version}, source=IDesktopWallpaper, " +
+                $"position={data.Position}, monitors={data.Monitors.Count}/{data.ReportedMonitorCount}[{monitorSummary}], " +
+                $"dynamicWallpaper={engine}, sampling=static-source-only");
+        }
+        else if (monitors.Count == 0)
+        {
+            Volatile.Write(ref s_lastRefreshError, "no-usable-monitors");
+            App.Log($"[WallpaperContrast] refresh found no usable monitors; " +
+                $"snapshot={SnapshotVersion}; retry=60s");
         }
     }
 
@@ -172,6 +217,7 @@ internal static class WallpaperContrastService
                 IntPtr.Zero,
                 coInitializeMultithreaded);
             uninitializeCom = initializeResult >= 0;
+            App.Log($"[WallpaperContrast] CoInitializeEx HRESULT=0x{unchecked((uint)initializeResult):X8}");
             int createResult = Ole32NativeMethods.CoCreateInstance(
                 in classId,
                 IntPtr.Zero,
@@ -180,6 +226,7 @@ internal static class WallpaperContrastService
                 out desktopWallpaper);
             if (createResult < 0 || desktopWallpaper == 0)
             {
+                LogComFailure("CoCreateInstance(IDesktopWallpaper)", createResult);
                 return null;
             }
 
@@ -201,6 +248,13 @@ internal static class WallpaperContrastService
                 if (positionResult < 0 || colorResult < 0 || countResult < 0 ||
                     positionValue is < 0 or > 5 || monitorCount is 0 or > 64)
                 {
+                    if (positionResult < 0) LogComFailure("GetWallpaperPosition", positionResult);
+                    if (colorResult < 0) LogComFailure("GetBackgroundColor", colorResult);
+                    if (countResult < 0) LogComFailure("GetMonitorDevicePathCount", countResult);
+                    if (positionValue is < 0 or > 5 || monitorCount is 0 or > 64)
+                    {
+                        App.Log($"[WallpaperContrast] invalid COM values position={positionValue}, monitors={monitorCount}");
+                    }
                     return null;
                 }
 
@@ -219,8 +273,10 @@ internal static class WallpaperContrastService
                         &monitorId);
                     if (monitorResult < 0 || monitorId == 0)
                     {
+                        if (monitorResult < 0) LogComFailure("GetMonitorDevicePathAt", monitorResult);
+                        else App.Log("[WallpaperContrast] GetMonitorDevicePathAt returned a null monitor id");
                         if (monitorId != 0) FileOperationNativeMethods.CoTaskMemFree(monitorId);
-                        return null;
+                        continue;
                     }
 
                     try
@@ -233,7 +289,9 @@ internal static class WallpaperContrastService
                         if (rectResult < 0 || nativeRect.Right <= nativeRect.Left ||
                             nativeRect.Bottom <= nativeRect.Top)
                         {
-                            return null;
+                            if (rectResult < 0) LogComFailure("GetMonitorRECT", rectResult);
+                            else App.Log("[WallpaperContrast] GetMonitorRECT returned invalid bounds");
+                            continue;
                         }
 
                         nint wallpaperPath = 0;
@@ -243,12 +301,13 @@ internal static class WallpaperContrastService
                             &wallpaperPath);
                         if (wallpaperResult < 0)
                         {
+                            LogComFailure("GetWallpaper", wallpaperResult);
                             if (wallpaperPath != 0)
                             {
                                 FileOperationNativeMethods.CoTaskMemFree(wallpaperPath);
                             }
 
-                            return null;
+                            continue;
                         }
 
                         string? imagePath = ReadUtf16(wallpaperPath);
@@ -271,15 +330,26 @@ internal static class WallpaperContrastService
                     }
                 }
 
-                if (monitors.Count != (int)monitorCount) return null;
+                if (!WallpaperContrastPolicy.HasUsableMonitors(monitors.Count, (int)monitorCount))
+                {
+                    App.Log($"[WallpaperContrast] no usable monitor entries from COM enumeration reported={monitorCount}");
+                    return null;
+                }
+                if (monitors.Count != (int)monitorCount)
+                {
+                    App.Log($"[WallpaperContrast] skipped unavailable COM monitors usable={monitors.Count}, reported={monitorCount}");
+                }
                 return new WallpaperSnapshotData(
                     (WallpaperPosition)positionValue,
                     backgroundColor,
-                    monitors);
+                    monitors,
+                    (int)monitorCount);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            App.Log($"[WallpaperContrast] desktop source exception={ex.GetType().Name}/" +
+                $"0x{unchecked((uint)ex.HResult):X8}");
             return null;
         }
         finally
@@ -309,6 +379,43 @@ internal static class WallpaperContrastService
         return length == 0 ? null : new string(text, 0, length);
     }
 
+    private static void LogComFailure(string operation, int hresult) =>
+        App.Log($"[WallpaperContrast] COM {operation} failed HRESULT=0x{unchecked((uint)hresult):X8}");
+
+    private static string SafeExtension(string path)
+    {
+        try
+        {
+            string extension = Path.GetExtension(path);
+            return extension.Length is > 0 and <= 8 ? extension.ToLowerInvariant() : "<unknown-extension>";
+        }
+        catch
+        {
+            return "<unknown-extension>";
+        }
+    }
+
+    private static bool DetectWallpaperEngine()
+    {
+        foreach (string processName in new[] { "wallpaper64", "webwallpaper64" })
+        {
+            try
+            {
+                Process[] processes = Process.GetProcessesByName(processName);
+                bool found = processes.Length > 0;
+                foreach (Process process in processes) process.Dispose();
+                if (found) return true;
+            }
+            catch
+            {
+                // Process inspection is optional; the Windows wallpaper API
+                // remains the authoritative supported static source.
+            }
+        }
+
+        return false;
+    }
+
     private static async Task<WallpaperBitmap?> GetOrDecodeBitmapAsync(
         string path,
         CancellationToken cancellationToken)
@@ -317,7 +424,12 @@ internal static class WallpaperContrastService
         {
             var fileInfo = new FileInfo(path);
             string? key = GetBitmapCacheKey(path);
-            if (key is null || !fileInfo.Exists) return null;
+            if (key is null || !fileInfo.Exists)
+            {
+                App.Log($"[WallpaperContrast] image source unavailable extension={SafeExtension(path)}, " +
+                    $"exists={fileInfo.Exists}, metadata={(key is null ? "unavailable" : "available")}");
+                return null;
+            }
             lock (s_bitmapCache)
             {
                 if (s_bitmapCache.TryGetValue(key, out CachedBitmap? cached))
@@ -335,6 +447,8 @@ internal static class WallpaperContrastService
             uint sourceHeight = decoder.PixelHeight;
             if (sourceWidth == 0 || sourceHeight == 0 || sourceWidth > int.MaxValue || sourceHeight > int.MaxValue)
             {
+                App.Log($"[WallpaperContrast] image decode returned invalid dimensions " +
+                    $"extension={SafeExtension(path)}, width={sourceWidth}, height={sourceHeight}");
                 return null;
             }
 
@@ -360,6 +474,8 @@ internal static class WallpaperContrastService
                 (int)mapWidth,
                 (int)mapHeight,
                 pixelData.DetachPixelData());
+            App.Log($"[WallpaperContrast] image decoded extension={SafeExtension(path)}, " +
+                $"source={sourceWidth}x{sourceHeight}, map={mapWidth}x{mapHeight}");
             lock (s_bitmapCache)
             {
                 s_bitmapCache[key] = new CachedBitmap(bitmap, DateTime.UtcNow);
@@ -384,8 +500,10 @@ internal static class WallpaperContrastService
         {
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            App.Log($"[WallpaperContrast] image decode failed extension={SafeExtension(path)}, " +
+                $"exception={ex.GetType().Name}/0x{unchecked((uint)ex.HResult):X8}");
             return null;
         }
     }
@@ -411,11 +529,20 @@ internal static class WallpaperContrastService
 
     private static void Release()
     {
+        int clients;
+        bool stopped = false;
         lock (s_gate)
         {
-            if (s_clients == 0 || --s_clients != 0) return;
-            s_refreshCancellation?.Cancel();
+            if (s_clients == 0) return;
+            clients = --s_clients;
+            if (clients == 0)
+            {
+                s_refreshCancellation?.Cancel();
+                stopped = true;
+            }
         }
+
+        App.Log($"[WallpaperContrast] client released clients={clients}, workerCancelRequested={stopped}");
     }
 
     private sealed class ClientLease : IDisposable
@@ -455,7 +582,8 @@ internal static class WallpaperContrastService
     private sealed record WallpaperSnapshotData(
         WallpaperPosition Position,
         Color BackgroundColor,
-        IReadOnlyList<WallpaperMonitorData> Monitors);
+        IReadOnlyList<WallpaperMonitorData> Monitors,
+        int ReportedMonitorCount);
 
     private sealed class WallpaperSnapshot(
         WallpaperPosition position,

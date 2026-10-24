@@ -5,6 +5,31 @@ namespace DeskBox.Tests;
 public sealed class WallpaperContrastPolicyTests
 {
     [Fact]
+    public void CanReuseSample_RequiresTheAdaptiveForegroundToStillBeApplied()
+    {
+        Assert.False(WallpaperContrastPolicy.CanReuseSample(
+            sampleInputsMatch: true,
+            foregroundStillApplied: false));
+        Assert.True(WallpaperContrastPolicy.CanReuseSample(
+            sampleInputsMatch: true,
+            foregroundStillApplied: true));
+    }
+
+    [Fact]
+    public void HasUsableMonitors_AcceptsConnectedSubsetAndRejectsEmptyEnumeration()
+    {
+        Assert.True(WallpaperContrastPolicy.HasUsableMonitors(
+            usableMonitorCount: 1,
+            reportedMonitorCount: 3));
+        Assert.False(WallpaperContrastPolicy.HasUsableMonitors(
+            usableMonitorCount: 0,
+            reportedMonitorCount: 3));
+        Assert.False(WallpaperContrastPolicy.HasUsableMonitors(
+            usableMonitorCount: 1,
+            reportedMonitorCount: 0));
+    }
+
+    [Fact]
     public void SrgbLuminance_MapsBlackAndWhiteToEndpoints()
     {
         Assert.Equal(0d, WallpaperContrastPolicy.SrgbLuminance(0, 0, 0), 6);

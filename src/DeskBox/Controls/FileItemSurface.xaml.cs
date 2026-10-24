@@ -348,6 +348,23 @@ public sealed partial class FileItemSurface : UserControl, INotifyPropertyChange
         }
     }
 
+    internal bool HasAdaptiveNameForeground(
+        bool preferWhite,
+        TextBlock? additionalNameText = null)
+    {
+        TextBlock? activeName = Mode == FileItemSurfaceMode.Icon
+            ? _iconItemNameText
+            : _listItemNameText;
+        SolidColorBrush? expectedBrush = preferWhite
+            ? _adaptiveWhiteNameBrush
+            : _adaptiveDarkNameBrush;
+        return _adaptiveNamePrefersWhite == preferWhite &&
+            activeName is not null && expectedBrush is not null &&
+            ReferenceEquals(activeName.Foreground, expectedBrush) &&
+            (additionalNameText is null ||
+             ReferenceEquals(additionalNameText.Foreground, expectedBrush));
+    }
+
     protected override Windows.Foundation.Size MeasureOverride(
         Windows.Foundation.Size availableSize)
     {
