@@ -414,7 +414,7 @@ public abstract partial class WidgetWindowBase
         foreach (string key in keys)
         {
             if (RootElement.Resources.TryGetValue(key, out object? value) &&
-                value is SolidColorBrush brush)
+                value is SolidColorBrush brush && !brush.Color.Equals(color))
             {
                 brush.Color = color;
             }

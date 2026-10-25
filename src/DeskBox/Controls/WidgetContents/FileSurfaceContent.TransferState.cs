@@ -40,7 +40,7 @@ public sealed partial class FileSurfaceContent
         {
             if (border.XamlRoot is null)
             {
-                _itemSurfaces.Remove(border);
+                UnregisterContrastSurface(border);
                 continue;
             }
 

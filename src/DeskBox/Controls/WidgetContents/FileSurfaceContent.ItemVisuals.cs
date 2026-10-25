@@ -394,7 +394,7 @@ public sealed partial class FileSurfaceContent
         if (FileItemSurface.TryGetInteractiveBorder(sender) is { } border)
         {
             RestoreStackAnimationElement(border);
-            _itemSurfaces.Add(border);
+            RegisterContrastSurface(border, FileItemSurface.FindOwner(border));
             ApplyItemSurfaceVisual(
                 border,
                 FileItemSurface.FindOwner(border)?.VisualState ??
@@ -417,7 +417,7 @@ public sealed partial class FileSurfaceContent
                 _folderDropVisualActive = false;
             }
 
-            _itemSurfaces.Remove(border);
+            UnregisterContrastSurface(border);
             if (FileItemSurface.FindOwner(border) is { } surface)
             {
                 surface.SizeChanged -= ItemSurface_SizeChangedForContrast;
@@ -2774,7 +2774,7 @@ public sealed partial class FileSurfaceContent
             // every realized surface from the native item containers so a
             // later SelectionChanged always refreshes previously selected
             // stack children as well.
-            _itemSurfaces.Add(border);
+            RegisterContrastSurface(border, FileItemSurface.FindOwner(border));
             FileItemSurfaceVisualState state =
                 FileItemSurface.FindOwner(border)?.VisualState ??
                     FileItemSurfaceVisualState.Normal;
@@ -2785,7 +2785,7 @@ public sealed partial class FileSurfaceContent
         {
             if (border.XamlRoot is null)
             {
-                _itemSurfaces.Remove(border);
+                UnregisterContrastSurface(border);
             }
         }
 

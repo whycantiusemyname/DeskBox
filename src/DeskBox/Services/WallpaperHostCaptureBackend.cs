@@ -50,9 +50,12 @@ internal static class WallpaperHostCaptureBackend
         WallpaperHostCaptureMethod method)
     {
         var stopwatch = Stopwatch.StartNew();
+        var timings = new WallpaperHostCaptureTimings();
+        long enumerationStarted = Stopwatch.GetTimestamp();
         List<WallpaperHostWindowCandidate> candidates = EnumerateCandidates(
             monitorBounds,
             out bool enumerationSucceeded);
+        timings.AddEnumeration(enumerationStarted);
         if (candidates.Count == 0)
         {
             stopwatch.Stop();
@@ -63,7 +66,8 @@ internal static class WallpaperHostCaptureBackend
                 0,
                 0,
                 stopwatch.ElapsedMilliseconds,
-                string.Empty);
+                string.Empty,
+                timings);
         }
 
         var monitorCandidates = new Dictionary<WallpaperContrastRect, List<WallpaperHostWindowCandidate>>();
@@ -110,7 +114,8 @@ internal static class WallpaperHostCaptureBackend
                     monitorBounds,
                     method,
                     out Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap> capturedByMonitor,
-                    out string captureMethodUsed))
+                    out string captureMethodUsed,
+                    ref timings))
             {
                 continue;
             }
@@ -149,7 +154,8 @@ internal static class WallpaperHostCaptureBackend
             printWindowAttempts,
             renderedWindowCount,
             stopwatch.ElapsedMilliseconds,
-            string.Join(";", captures));
+            string.Join(";", captures),
+            timings);
     }
 
     private static List<WallpaperHostWindowCandidate> EnumerateCandidates(
@@ -380,7 +386,8 @@ internal static class WallpaperHostCaptureBackend
         IReadOnlyList<WallpaperContrastRect> monitorBounds,
         WallpaperHostCaptureMethod method,
         out Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap> mapsByMonitor,
-        out string captureMethodUsed)
+        out string captureMethodUsed,
+        ref WallpaperHostCaptureTimings timings)
     {
         mapsByMonitor = new Dictionary<WallpaperContrastRect, WallpaperDynamicBitmap>();
         captureMethodUsed = "unavailable";
@@ -404,6 +411,8 @@ internal static class WallpaperHostCaptureBackend
         IntPtr sourceWindowDc = IntPtr.Zero;
         IntPtr bitmap = IntPtr.Zero;
         IntPtr oldBitmap = IntPtr.Zero;
+        long bitmapSetupStarted = Stopwatch.GetTimestamp();
+        bool bitmapSetupTimingRecorded = false;
         try
         {
             memoryDc = WallpaperCaptureNativeMethods.CreateCompatibleDC(IntPtr.Zero);
@@ -437,11 +446,6 @@ internal static class WallpaperHostCaptureBackend
                 return false;
             }
 
-            unsafe
-            {
-                new Span<byte>((void*)pixels, checked((int)(pixelCount * 4))).Clear();
-            }
-
             oldBitmap = WallpaperCaptureNativeMethods.SelectObject(memoryDc, bitmap);
             if (oldBitmap == IntPtr.Zero || oldBitmap == new IntPtr(-1))
             {
@@ -449,24 +453,41 @@ internal static class WallpaperHostCaptureBackend
                 return false;
             }
 
+            timings.AddBitmapSetup(bitmapSetupStarted);
+            bitmapSetupTimingRecorded = true;
+            long bitmapClearStarted = Stopwatch.GetTimestamp();
+            unsafe
+            {
+                new Span<byte>((void*)pixels, checked((int)(pixelCount * 4))).Clear();
+            }
+            timings.AddBitmapClear(bitmapClearStarted);
+
             bool captured;
             switch (method)
             {
                 case WallpaperHostCaptureMethod.FullWindow:
                     captureMethodUsed = "PrintWindow(flags=2)";
+                    long fullWindowStarted = Stopwatch.GetTimestamp();
                     captured = PrintFullWindow(candidate.Handle, memoryDc);
+                    timings.AddPrintWindow(fullWindowStarted);
                     break;
                 case WallpaperHostCaptureMethod.LegacyWindow:
                     captureMethodUsed = "GetWindowDC+BitBlt";
+                    long legacyBlitStarted = Stopwatch.GetTimestamp();
                     captured = BlitWindow(candidate.Handle, memoryDc, width, height, out sourceWindowDc);
+                    timings.AddBitBlt(legacyBlitStarted);
                     break;
                 default:
                     captureMethodUsed = "PrintWindow(flags=2)";
+                    long autoPrintStarted = Stopwatch.GetTimestamp();
                     captured = PrintFullWindow(candidate.Handle, memoryDc);
+                    timings.AddPrintWindow(autoPrintStarted);
                     if (!captured)
                     {
                         captureMethodUsed = "GetWindowDC+BitBlt";
+                        long autoBlitStarted = Stopwatch.GetTimestamp();
                         captured = BlitWindow(candidate.Handle, memoryDc, width, height, out sourceWindowDc);
+                        timings.AddBitBlt(autoBlitStarted);
                     }
 
                     break;
@@ -476,13 +497,17 @@ internal static class WallpaperHostCaptureBackend
                 return false;
             }
 
-            if (!WallpaperCaptureNativeMethods.GdiFlush())
+            long gdiFlushStarted = Stopwatch.GetTimestamp();
+            bool flushed = WallpaperCaptureNativeMethods.GdiFlush();
+            timings.AddGdiFlush(gdiFlushStarted);
+            if (!flushed)
             {
                 App.Log($"[WallpaperContrast] GdiFlush failed hostClass={candidate.ClassName} rect={FormatRect(bounds)} method={captureMethodUsed}");
                 captureMethodUsed = "GdiFlush-failed";
                 return false;
             }
 
+            long mapGenerationStarted = Stopwatch.GetTimestamp();
             unsafe
             {
                 var source = new ReadOnlySpan<byte>((void*)pixels, checked((int)(pixelCount * 4)));
@@ -508,6 +533,7 @@ internal static class WallpaperHostCaptureBackend
                     mapsByMonitor[monitor] = map;
                 }
             }
+            timings.AddMapGeneration(mapGenerationStarted);
 
             return mapsByMonitor.Count > 0;
         }
@@ -517,6 +543,11 @@ internal static class WallpaperHostCaptureBackend
         }
         finally
         {
+            if (!bitmapSetupTimingRecorded)
+            {
+                timings.AddBitmapSetup(bitmapSetupStarted);
+            }
+
             if (sourceWindowDc != IntPtr.Zero)
             {
                 _ = WallpaperCaptureNativeMethods.ReleaseDC(candidate.Handle, sourceWindowDc);
@@ -640,14 +671,53 @@ internal static class WallpaperHostCaptureBackend
         bool ContainsWallpaperRenderer);
 }
 
+internal struct WallpaperHostCaptureTimings
+{
+    private double _enumerationWallMs;
+    private double _bitmapSetupWallMs;
+    private double _bitmapClearWallMs;
+    private double _printWindowWallMs;
+    private double _bitBltWallMs;
+    private double _gdiFlushWallMs;
+    private double _mapGenerationWallMs;
+
+    public void AddEnumeration(long startedTimestamp) =>
+        _enumerationWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddBitmapSetup(long startedTimestamp) =>
+        _bitmapSetupWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddBitmapClear(long startedTimestamp) =>
+        _bitmapClearWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddPrintWindow(long startedTimestamp) =>
+        _printWindowWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddBitBlt(long startedTimestamp) =>
+        _bitBltWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddGdiFlush(long startedTimestamp) =>
+        _gdiFlushWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public void AddMapGeneration(long startedTimestamp) =>
+        _mapGenerationWallMs += Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
+
+    public readonly string ToDiagnosticString() =>
+        $"enumeration={_enumerationWallMs:F1},bitmapSetup={_bitmapSetupWallMs:F1}," +
+        $"bitmapClear={_bitmapClearWallMs:F1},printWindow={_printWindowWallMs:F1}," +
+        $"bitBlt={_bitBltWallMs:F1},gdiFlush={_gdiFlushWallMs:F1}," +
+        $"mapGeneration={_mapGenerationWallMs:F1}";
+}
+
 internal sealed record WallpaperHostCaptureResult(
     string Status,
     IReadOnlyDictionary<WallpaperContrastRect, WallpaperDynamicBitmap> Maps,
     int HostCount,
     int PrintWindowAttempts,
     int RenderedWindowCount,
-    long ElapsedMilliseconds,
-    string CaptureSummary)
+    long ElapsedWallMilliseconds,
+    string CaptureSummary,
+    WallpaperHostCaptureTimings Timings = default)
 {
     public static WallpaperHostCaptureResult Disabled { get; } = new(
         "disabled",

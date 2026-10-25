@@ -15,6 +15,8 @@ namespace DeskBox.Controls.WidgetContents;
 
 public sealed partial class FileSurfaceContent
 {
+    private readonly WallpaperContrastSurfaceCache<Border, FileItemSurface> _contrastSurfaceCache =
+        new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<FileItemSurface, AdaptiveNameSampleState> _adaptiveNameChoices =
         new(ReferenceEqualityComparer.Instance);
     private readonly WallpaperContrastGeometryCache<FileItemSurface, AdaptiveNameGeometry> _adaptiveNameGeometry =
@@ -160,7 +162,7 @@ public sealed partial class FileSurfaceContent
                             ? "high-contrast"
                             : "active";
         LogAdaptiveContrastDiagnostic(
-            $"surface={GetHashCode():X}, gate mode={WidgetForegroundSettings.ResolveMode(Config, _settingsService.Settings)} " +
+            () => $"surface={GetHashCode():X}, gate mode={WidgetForegroundSettings.ResolveMode(Config, _settingsService.Settings)} " +
             $"override={(WidgetForegroundSettings.GetModeOverride(Config) is null ? "global" : "widget")}, " +
             $"reason={gateReason}, loaded={_isContrastSurfaceLoaded}, visible={_isWindowVisible}, " +
             $"handle={_hostWindowHandle != IntPtr.Zero}, highContrast=" +
@@ -341,7 +343,7 @@ public sealed partial class FileSurfaceContent
             WindowsCompatibilityService.IsHighContrast)
         {
             LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason=surface-state loaded={_isContrastSurfaceLoaded}, " +
+                () => $"pass skipped reason=surface-state loaded={_isContrastSurfaceLoaded}, " +
                 $"visible={_isWindowVisible}, handle={_hostWindowHandle != IntPtr.Zero}, " +
                 $"highContrast={WindowsCompatibilityService.IsHighContrast}, realized={_itemSurfaces.Count}",
                 $"pass-gate:{_isDisposed}:{_isContrastSurfaceLoaded}:{_isWindowVisible}:" +
@@ -359,7 +361,7 @@ public sealed partial class FileSurfaceContent
             WidgetForegroundSettings.ModeAutoBackground)
         {
             LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason=mode-disabled mode={WidgetForegroundSettings.ResolveMode(Config, settings)}, " +
+                () => $"pass skipped reason=mode-disabled mode={WidgetForegroundSettings.ResolveMode(Config, settings)}, " +
                 $"realized={_itemSurfaces.Count}",
                 $"pass-mode:{WidgetForegroundSettings.ResolveMode(Config, settings)}");
             ResetAdaptiveFilenameLabels();
@@ -374,7 +376,7 @@ public sealed partial class FileSurfaceContent
         int skippedSurface = 0;
         int skippedBounds = 0;
         int skippedUnavailable = 0;
-        string? sampleExample = null;
+        AdaptiveContrastSampleExample? sampleExample = null;
         Color effectiveAccentColor = App.Current.ThemeService?.GetEffectiveAccentColor()
             ?? AccentColorHelper.DefaultAccentColor;
         bool hasSolidWidgetBackground;
@@ -396,7 +398,7 @@ public sealed partial class FileSurfaceContent
                 _ => $"unsupported-material:{settings.WidgetShell.WidgetMaterialType}"
             };
             LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason={reason}, realized={realized}",
+                () => $"pass skipped reason={reason}, realized={realized}",
                 $"pass:{reason}");
             ResetAdaptiveFilenameLabels();
             return;
@@ -406,9 +408,9 @@ public sealed partial class FileSurfaceContent
         luminanceOverlayOpacity = backgroundSurface.OverlayOpacity;
         luminanceOverlayColor = backgroundSurface.OverlayColor;
 
-        foreach (Border border in _itemSurfaces.ToArray())
+        foreach (Border border in GetContrastSurfaceSnapshot())
         {
-            FileItemSurface? surface = FileItemSurface.FindOwner(border);
+            if (!_contrastSurfaceCache.TryGetOwner(border, out FileItemSurface surface, out _)) continue;
             if (surface is null ||
                 surface.DataContext is not WidgetItem item ||
                 item is WidgetStackItem ||
@@ -550,22 +552,23 @@ public sealed partial class FileSurfaceContent
                 preferWhite);
             if (preferWhite) whiteApplied++;
             else darkApplied++;
-            sampleExample ??= $"bounds=({screenBounds.Left:F0},{screenBounds.Top:F0})-" +
-                $"({screenBounds.Right:F0},{screenBounds.Bottom:F0}), " +
-                $"luminance={backgroundLuminance:F3}, foreground={(preferWhite ? "white" : "dark")}";
+            sampleExample ??= new AdaptiveContrastSampleExample(
+                screenBounds,
+                backgroundLuminance,
+                preferWhite);
         }
 
         LogAdaptiveContrastDiagnostic(
-            $"pass realized={realized}, eligible={eligible}, white={whiteApplied}, dark={darkApplied}, " +
+            () => $"pass realized={realized}, eligible={eligible}, white={whiteApplied}, dark={darkApplied}, " +
             $"cacheHits={cacheHits}, skippedSurface={skippedSurface}, skippedBounds={skippedBounds}, " +
             $"skippedUnavailable={skippedUnavailable}, snapshot={WallpaperContrastService.SnapshotVersion}, " +
-            $"example={sampleExample ?? "none"}, {WallpaperContrastService.GetDiagnosticStatus()}",
+            $"example={sampleExample?.ToDiagnosticString() ?? "none"}, {WallpaperContrastService.GetDiagnosticStatus()}",
             $"pass:{realized}:{eligible}:{whiteApplied}:{darkApplied}:{skippedSurface}:" +
             $"{skippedBounds}:{skippedUnavailable}:{WallpaperContrastService.SnapshotVersion}");
     }
 
     private void LogAdaptiveContrastDiagnostic(
-        string details,
+        Func<string> detailsFactory,
         string signature,
         bool isGate = false)
     {
@@ -599,7 +602,7 @@ public sealed partial class FileSurfaceContent
             _lastContrastPassDiagnosticUtc = now;
         }
 
-        App.Log($"[WallpaperContrast] surface={GetHashCode():X}, {details}");
+        App.Log($"[WallpaperContrast] surface={GetHashCode():X}, {detailsFactory()}");
     }
 
     private bool TryGetAdaptiveNameBounds(
@@ -610,7 +613,10 @@ public sealed partial class FileSurfaceContent
         out WallpaperContrastRect screenBounds)
     {
         screenBounds = default;
-        if (!isExpanded && !IsSurfaceInMainItemsView(surface))
+        if (!isExpanded && (!_contrastSurfaceCache.TryGetOwner(
+                surface.InteractiveBorder,
+                out _,
+                out bool inMainView) || !inMainView))
         {
             return false;
         }
@@ -706,7 +712,7 @@ public sealed partial class FileSurfaceContent
             if (!Win32Helper.ClientToScreen(_hostWindowHandle, ref clientOrigin))
             {
                 LogAdaptiveContrastDiagnostic(
-                    "visible-bounds unavailable reason=ClientToScreen-failed",
+                    static () => "visible-bounds unavailable reason=ClientToScreen-failed",
                     "bounds-client-to-screen-failed");
                 return false;
             }
@@ -717,7 +723,7 @@ public sealed partial class FileSurfaceContent
             if (!double.IsFinite(scale) || scale <= 0)
             {
                 LogAdaptiveContrastDiagnostic(
-                    $"visible-bounds unavailable reason=invalid-dpi-scale scale={scale}",
+                    () => $"visible-bounds unavailable reason=invalid-dpi-scale scale={scale}",
                     $"bounds-invalid-dpi:{scale}");
                 return false;
             }
@@ -762,7 +768,7 @@ public sealed partial class FileSurfaceContent
         catch (Exception ex)
         {
             LogAdaptiveContrastDiagnostic(
-                $"viewport-root-offset transform failed exception={ex.GetType().Name}/" +
+                () => $"viewport-root-offset transform failed exception={ex.GetType().Name}/" +
                 $"0x{unchecked((uint)ex.HResult):X8}",
                 $"viewport-root-offset-transform:{ex.GetType().Name}:{ex.HResult}");
             return false;
@@ -843,7 +849,7 @@ public sealed partial class FileSurfaceContent
             catch (Exception ex)
             {
                 LogAdaptiveContrastDiagnostic(
-                    $"item-local-bounds transform failed exception={ex.GetType().Name}/" +
+                    () => $"item-local-bounds transform failed exception={ex.GetType().Name}/" +
                     $"0x{unchecked((uint)ex.HResult):X8}",
                     $"item-local-bounds-transform:{ex.GetType().Name}:{ex.HResult}");
                 geometry = default;
@@ -919,7 +925,7 @@ public sealed partial class FileSurfaceContent
         catch (Exception ex)
         {
             LogAdaptiveContrastDiagnostic(
-                $"local-bounds transform failed exception={ex.GetType().Name}/" +
+                () => $"local-bounds transform failed exception={ex.GetType().Name}/" +
                 $"0x{unchecked((uint)ex.HResult):X8}",
                 $"local-bounds-transform:{ex.GetType().Name}:{ex.HResult}");
             return false;
@@ -961,7 +967,7 @@ public sealed partial class FileSurfaceContent
         catch (Exception ex)
         {
             LogAdaptiveContrastDiagnostic(
-                $"grid-origin transform failed exception={ex.GetType().Name}/" +
+                () => $"grid-origin transform failed exception={ex.GetType().Name}/" +
                 $"0x{unchecked((uint)ex.HResult):X8}",
                 $"grid-origin-transform:{ex.GetType().Name}:{ex.HResult}");
             return false;
@@ -1000,6 +1006,27 @@ public sealed partial class FileSurfaceContent
         return false;
     }
 
+    private void RegisterContrastSurface(Border border, FileItemSurface? owner = null)
+    {
+        owner ??= FileItemSurface.FindOwner(border);
+        if (owner is null)
+        {
+            UnregisterContrastSurface(border);
+            return;
+        }
+
+        _itemSurfaces.Add(border);
+        _contrastSurfaceCache.Register(border, owner, IsSurfaceInMainItemsView(owner));
+    }
+
+    private void UnregisterContrastSurface(Border border)
+    {
+        _itemSurfaces.Remove(border);
+        _contrastSurfaceCache.Unregister(border);
+    }
+
+    private Border[] GetContrastSurfaceSnapshot() => _contrastSurfaceCache.GetSnapshot();
+
     private void EnsureContrastAccessibilityWatcher()
     {
         if (_contrastAccessibilitySettings is not null) return;
@@ -1013,7 +1040,7 @@ public sealed partial class FileSurfaceContent
         {
             _contrastAccessibilitySettings = null;
             LogAdaptiveContrastDiagnostic(
-                $"accessibility watcher unavailable exception={ex.GetType().Name}/" +
+                () => $"accessibility watcher unavailable exception={ex.GetType().Name}/" +
                 $"0x{unchecked((uint)ex.HResult):X8}",
                 $"accessibility-watcher:{ex.GetType().Name}:{ex.HResult}");
         }
@@ -1093,4 +1120,15 @@ public sealed partial class FileSurfaceContent
         WallpaperContrastRect LocalTextBounds,
         double MeasuredHorizontalOffset,
         double MeasuredVerticalOffset);
+
+    private readonly record struct AdaptiveContrastSampleExample(
+        WallpaperContrastRect Bounds,
+        double Luminance,
+        bool PreferWhite)
+    {
+        public string ToDiagnosticString() =>
+            $"bounds=({Bounds.Left:F0},{Bounds.Top:F0})-" +
+            $"({Bounds.Right:F0},{Bounds.Bottom:F0}), " +
+            $"luminance={Luminance:F3}, foreground={(PreferWhite ? "white" : "dark")}";
+    }
 }

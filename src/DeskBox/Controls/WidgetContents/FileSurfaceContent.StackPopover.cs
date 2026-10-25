@@ -2169,7 +2169,7 @@ public sealed partial class FileSurfaceContent
             surface.VisualStateChanged -= ItemSurface_VisualStateChanged;
             surface.DataContextChanged -= ItemSurface_DataContextChanged;
             surface.LayoutContext = null;
-            _itemSurfaces.Remove(surface.InteractiveBorder);
+            UnregisterContrastSurface(surface.InteractiveBorder);
             if (ReferenceEquals(surface.InteractiveBorder, _folderDropTarget))
             {
                 _folderDropTarget = null;

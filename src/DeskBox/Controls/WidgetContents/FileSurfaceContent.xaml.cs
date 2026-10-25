@@ -6315,6 +6315,9 @@ public sealed partial class FileSurfaceContent :
         NameExpansionText.SizeChanged -= ExpandedNameText_SizeChangedForContrast;
         _settingsService.SettingsChanged -= FileSurfaceContent_SettingsChanged;
         StopAdaptiveFilenameContrast(clearLabels: true);
+        _contrastSurfaceCache.Clear();
+        _itemSurfaces.Clear();
+        _adaptiveNameGeometry.Clear();
         DisposeContrastAccessibilityWatcher();
         UnregisterRenderWindowTracking();
         DisposeScrollBarActivityTracking();

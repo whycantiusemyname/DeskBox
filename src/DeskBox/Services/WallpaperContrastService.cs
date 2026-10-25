@@ -18,6 +18,7 @@ internal static class WallpaperContrastService
     private static readonly object s_gate = new();
     private static readonly object s_optionsGate = new();
     private static readonly object s_captureWorkerGate = new();
+    private static readonly object s_snapshotDiagnosticGate = new();
     private static readonly WallpaperSnapshotChangedSource s_snapshotChanged = new();
     private static readonly Dictionary<string, CachedBitmap> s_bitmapCache =
         new(StringComparer.OrdinalIgnoreCase);
@@ -27,6 +28,8 @@ internal static class WallpaperContrastService
     private static Task? s_refreshWorker;
     private static int s_clients;
     private static string? s_lastRefreshError;
+    private static DateTime s_lastSnapshotDiagnosticUtc = DateTime.MinValue;
+    private static string? s_lastSnapshotCaptureStatus;
     private static WallpaperCaptureOptions s_captureOptions = new();
     private static long s_captureOptionsVersion;
     private static TaskCompletionSource s_captureOptionsChanged =
@@ -403,37 +406,89 @@ internal static class WallpaperContrastService
 
         if (monitors.Count > 0 && !cancellationToken.IsCancellationRequested)
         {
-            var snapshot = new WallpaperSnapshot(
-                data.Position,
-                data.BackgroundColor,
-                monitors.ToArray(),
-                Interlocked.Increment(ref s_snapshotVersion));
-            Volatile.Write(ref s_snapshot, snapshot);
+            WallpaperMonitor[] monitorArray = monitors.ToArray();
+            WallpaperSnapshot? currentSnapshot = Volatile.Read(ref s_snapshot);
+            bool hasSameSamplingMetadata = currentSnapshot is not null &&
+                currentSnapshot.HasSameSamplingMetadata(
+                    data.Position,
+                    data.BackgroundColor,
+                    data.ReportedMonitorCount,
+                    monitorArray);
+            bool snapshotChanged = currentSnapshot is null || !hasSameSamplingMetadata ||
+                !currentSnapshot.HasSameSamplingPixels(monitorArray);
+            WallpaperSnapshot snapshot;
+            if (snapshotChanged)
+            {
+                snapshot = new WallpaperSnapshot(
+                    data.Position,
+                    data.BackgroundColor,
+                    data.ReportedMonitorCount,
+                    monitorArray,
+                    Interlocked.Increment(ref s_snapshotVersion));
+                Volatile.Write(ref s_snapshot, snapshot);
+                s_snapshotChanged.Publish(snapshot.Version);
+            }
+            else
+            {
+                snapshot = currentSnapshot!;
+            }
+
             Volatile.Write(ref s_lastRefreshError, null);
-            s_snapshotChanged.Publish(snapshot.Version);
-            string monitorSummary = string.Join(";", data.Monitors.Select(monitor =>
-                $"{monitor.Bounds.Left:F0},{monitor.Bounds.Top:F0}-" +
-                $"{monitor.Bounds.Right:F0},{monitor.Bounds.Bottom:F0}:" +
-                $"{(string.IsNullOrWhiteSpace(monitor.ImagePath) ? "background" : "image" + SafeExtension(monitor.ImagePath))}"));
-            int dynamicMonitorCount = monitors.Count(monitor => monitor.DynamicBitmap is not null);
-            string pixelSource = dynamicMonitorCount == 0
-                ? "IDesktopWallpaper"
-                : dynamicMonitorCount < monitors.Count && captureOptions.Source == WallpaperContrastSource.Auto
-                    ? "DesktopHostPrintWindow+IDesktopWallpaper"
-                    : "DesktopHostPrintWindow";
-            App.Log($"[WallpaperContrast] snapshot version={snapshot.Version}, source={pixelSource}, " +
-                $"position={data.Position}, monitors={data.Monitors.Count}/{data.ReportedMonitorCount}[{monitorSummary}], " +
-                $"hostCapture={hostCapture.Status}, hosts={hostCapture.HostCount}, " +
-                $"attempts={hostCapture.PrintWindowAttempts}, rendered={hostCapture.RenderedWindowCount}, " +
-                $"elapsedMs={hostCapture.ElapsedMilliseconds}, captures=[{hostCapture.CaptureSummary}], " +
-                $"captureOptions={captureOptions.Source}/{captureOptions.Method}, " +
-                $"sampling={(dynamicMonitorCount > 0 ? "screen-aligned-host-map" : captureOptions.Source == WallpaperContrastSource.DesktopHost ? "host-only-unavailable" : "static-source-or-unavailable")}");
+            if (ShouldLogSnapshotDiagnostic(!hasSameSamplingMetadata, hostCapture.Status))
+            {
+                LogSnapshot(snapshot, data, monitors, captureOptions, hostCapture, snapshotChanged);
+            }
         }
         else if (monitors.Count == 0)
         {
             Volatile.Write(ref s_lastRefreshError, "no-usable-monitors");
             App.Log($"[WallpaperContrast] refresh found no usable monitors; " +
                 $"snapshot={SnapshotVersion}; retry=60s");
+        }
+    }
+
+    private static void LogSnapshot(
+        WallpaperSnapshot snapshot,
+        WallpaperSnapshotData data,
+        IReadOnlyList<WallpaperMonitor> monitors,
+        WallpaperCaptureOptions captureOptions,
+        WallpaperHostCaptureResult hostCapture,
+        bool snapshotChanged)
+    {
+        string monitorSummary = string.Join(";", data.Monitors.Select(monitor =>
+            $"{monitor.Bounds.Left:F0},{monitor.Bounds.Top:F0}-" +
+            $"{monitor.Bounds.Right:F0},{monitor.Bounds.Bottom:F0}:" +
+            $"{(string.IsNullOrWhiteSpace(monitor.ImagePath) ? "background" : "image" + SafeExtension(monitor.ImagePath))}"));
+        int dynamicMonitorCount = monitors.Count(monitor => monitor.DynamicBitmap is not null);
+        string pixelSource = dynamicMonitorCount == 0 ? "IDesktopWallpaper" :
+            dynamicMonitorCount < monitors.Count && captureOptions.Source == WallpaperContrastSource.Auto
+                ? "DesktopHostPrintWindow+IDesktopWallpaper" : "DesktopHostPrintWindow";
+        App.Log($"[WallpaperContrast] snapshot version={snapshot.Version}, source={pixelSource}, " +
+            $"changed={snapshotChanged}, " +
+            $"position={data.Position}, monitors={data.Monitors.Count}/{data.ReportedMonitorCount}[{monitorSummary}], " +
+            $"hostCapture={hostCapture.Status}, hosts={hostCapture.HostCount}, attempts={hostCapture.PrintWindowAttempts}, " +
+            $"rendered={hostCapture.RenderedWindowCount}, wallMs={hostCapture.ElapsedWallMilliseconds}, " +
+            $"stagesWallMs={hostCapture.Timings.ToDiagnosticString()}, " +
+            $"captures=[{hostCapture.CaptureSummary}], captureOptions={captureOptions.Source}/{captureOptions.Method}, " +
+            $"sampling={(dynamicMonitorCount > 0 ? "screen-aligned-host-map" : captureOptions.Source == WallpaperContrastSource.DesktopHost ? "host-only-unavailable" : "static-source-or-unavailable")}");
+    }
+
+    private static bool ShouldLogSnapshotDiagnostic(bool metadataChanged, string captureStatus)
+    {
+        DateTime now = DateTime.UtcNow;
+        lock (s_snapshotDiagnosticGate)
+        {
+            if (!metadataChanged &&
+                string.Equals(s_lastSnapshotCaptureStatus, captureStatus, StringComparison.Ordinal) &&
+                s_lastSnapshotDiagnosticUtc != DateTime.MinValue &&
+                now - s_lastSnapshotDiagnosticUtc < TimeSpan.FromSeconds(30))
+            {
+                return false;
+            }
+
+            s_lastSnapshotDiagnosticUtc = now;
+            s_lastSnapshotCaptureStatus = captureStatus;
+            return true;
         }
     }
 
@@ -451,7 +506,10 @@ internal static class WallpaperContrastService
                 IntPtr.Zero,
                 coInitializeMultithreaded);
             uninitializeCom = initializeResult >= 0;
-            App.Log($"[WallpaperContrast] CoInitializeEx HRESULT=0x{unchecked((uint)initializeResult):X8}");
+            if (initializeResult < 0)
+            {
+                App.Log($"[WallpaperContrast] CoInitializeEx failed HRESULT=0x{unchecked((uint)initializeResult):X8}");
+            }
             int createResult = Ole32NativeMethods.CoCreateInstance(
                 in classId,
                 IntPtr.Zero,
@@ -780,14 +838,14 @@ internal static class WallpaperContrastService
         public DateTime LastUsedUtc { get; set; } = lastUsedUtc;
     }
 
-    private sealed record WallpaperBitmap(
+    internal sealed record WallpaperBitmap(
         int SourceWidth,
         int SourceHeight,
         int MapWidth,
         int MapHeight,
         byte[] BgraPixels);
 
-    private sealed record WallpaperMonitor(
+    internal sealed record WallpaperMonitor(
         WallpaperContrastRect Bounds,
         string? ImagePath,
         string? ImageIdentity,
@@ -807,13 +865,74 @@ internal static class WallpaperContrastService
         IReadOnlyList<WallpaperMonitorData> Monitors,
         int ReportedMonitorCount);
 
-    private sealed class WallpaperSnapshot(
+    internal sealed class WallpaperSnapshot(
         WallpaperPosition position,
         Color backgroundColor,
+        int reportedMonitorCount,
         WallpaperMonitor[] monitors,
         long version)
     {
         public long Version { get; } = version;
+
+        public bool HasSameSamplingMetadata(
+            WallpaperPosition candidatePosition,
+            Color candidateBackgroundColor,
+            int candidateReportedMonitorCount,
+            WallpaperMonitor[] candidateMonitors)
+        {
+            if (position != candidatePosition || !backgroundColor.Equals(candidateBackgroundColor) ||
+                reportedMonitorCount != candidateReportedMonitorCount ||
+                monitors.Length != candidateMonitors.Length) return false;
+            for (int index = 0; index < monitors.Length; index++)
+            {
+                WallpaperMonitor left = monitors[index];
+                WallpaperMonitor right = candidateMonitors[index];
+                if (left.Bounds != right.Bounds ||
+                    !string.Equals(left.ImagePath, right.ImagePath, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(left.ImageIdentity, right.ImageIdentity, StringComparison.OrdinalIgnoreCase) ||
+                    left.CaptureSource != right.CaptureSource || left.CaptureMethod != right.CaptureMethod ||
+                    left.HasUnsupportedImage != right.HasUnsupportedImage ||
+                    !BitmapMetadataEquals(left.Bitmap, right.Bitmap) ||
+                    !DynamicBitmapMetadataEquals(left.DynamicBitmap, right.DynamicBitmap))
+                    return false;
+            }
+            return true;
+        }
+
+        public bool HasSameSamplingPixels(WallpaperMonitor[] candidateMonitors)
+        {
+            if (monitors.Length != candidateMonitors.Length) return false;
+            for (int index = 0; index < monitors.Length; index++)
+            {
+                WallpaperMonitor left = monitors[index];
+                WallpaperMonitor right = candidateMonitors[index];
+                if (!BitmapPixelsEqual(left.Bitmap, right.Bitmap) ||
+                    !DynamicBitmapPixelsEqual(left.DynamicBitmap, right.DynamicBitmap))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool BitmapMetadataEquals(WallpaperBitmap? left, WallpaperBitmap? right) =>
+            ReferenceEquals(left, right) || (left is not null && right is not null &&
+                left.SourceWidth == right.SourceWidth && left.SourceHeight == right.SourceHeight &&
+                left.MapWidth == right.MapWidth && left.MapHeight == right.MapHeight);
+
+        private static bool BitmapPixelsEqual(WallpaperBitmap? left, WallpaperBitmap? right) =>
+            ReferenceEquals(left, right) || (left is not null && right is not null &&
+                left.BgraPixels.AsSpan().SequenceEqual(right.BgraPixels));
+
+        private static bool DynamicBitmapMetadataEquals(WallpaperDynamicBitmap? left, WallpaperDynamicBitmap? right) =>
+            ReferenceEquals(left, right) || (left is not null && right is not null &&
+                left.ScreenBounds == right.ScreenBounds &&
+                left.MapWidth == right.MapWidth && left.MapHeight == right.MapHeight);
+
+        private static bool DynamicBitmapPixelsEqual(WallpaperDynamicBitmap? left, WallpaperDynamicBitmap? right) =>
+            ReferenceEquals(left, right) || (left is not null && right is not null &&
+                left.BgraPixels.AsSpan().SequenceEqual(right.BgraPixels));
 
         private readonly WallpaperContrastRect _virtualBounds = new(
             monitors.Min(monitor => monitor.Bounds.Left),
