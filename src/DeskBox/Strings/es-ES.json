@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "Ventana completa",
   "Settings.WallpaperCapture.Method.LegacyWindow": "Ventana tradicional",
   "Settings.WallpaperCapture.RefreshInterval.Title": "Intervalo de actualización del fondo (segundos)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "Indica cada cuánto se actualiza la muestra del fondo. Elige entre 10 y 3600 segundos.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "Indica cada cuánto se actualiza la muestra del fondo. Elige entre 1 y 3600 segundos.",
   "Settings.WidgetForeground.CustomColor.Title": "Color de texto personalizado",
   "Settings.WidgetForeground.CustomColor.Description": "Define el color del texto de los widgets y de los controles monocromos; sin ajuste automático de contraste.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "¿Y si el color es difícil de leer?",

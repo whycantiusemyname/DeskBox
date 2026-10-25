@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "Всё окно",
   "Settings.WallpaperCapture.Method.LegacyWindow": "Традиционный способ",
   "Settings.WallpaperCapture.RefreshInterval.Title": "Интервал обновления обоев (секунды)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "Как часто обновлять образец обоев. Выберите от 10 до 3600 секунд.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "Как часто обновлять образец обоев. Выберите от 1 до 3600 секунд.",
   "Settings.WidgetForeground.CustomColor.Title": "Пользовательский цвет текста",
   "Settings.WidgetForeground.CustomColor.Description": "Задаёт цвет текста виджета и однотонных элементов; автоматической подстройки контраста нет.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "Что, если цвет плохо читается?",

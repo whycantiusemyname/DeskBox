@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "पूरी विंडो",
   "Settings.WallpaperCapture.Method.LegacyWindow": "पारंपरिक विंडो",
   "Settings.WallpaperCapture.RefreshInterval.Title": "वॉलपेपर रीफ़्रेश अंतराल (सेकंड)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "वॉलपेपर नमूना कितनी बार अपडेट होगा। 10 से 3600 सेकंड चुनें।",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "वॉलपेपर नमूना कितनी बार अपडेट होगा। 1 से 3600 सेकंड चुनें।",
   "Settings.WidgetForeground.CustomColor.Title": "कस्टम टेक्स्ट रंग",
   "Settings.WidgetForeground.CustomColor.Description": "विजेट टेक्स्ट और एकरंगी नियंत्रणों का रंग सेट करें; कोई स्वचालित कंट्रास्ट समायोजन नहीं।",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "रंग पढ़ने में कठिन हो तो क्या करें?",

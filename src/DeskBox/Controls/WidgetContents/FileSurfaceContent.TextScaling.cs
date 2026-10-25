@@ -61,6 +61,7 @@ public sealed partial class FileSurfaceContent
             nameof(WidgetViewModel.IconLabelFontSize))
         {
             HideAllNameExpansions();
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: true);
         }
     }
 

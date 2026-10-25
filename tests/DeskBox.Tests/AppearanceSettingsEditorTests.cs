@@ -471,8 +471,8 @@ public sealed class AppearanceSettingsEditorTests : IDisposable
 
         Assert.Equal("SystemWallpaper", settings.Settings.WidgetShell.WallpaperCaptureSource);
         Assert.Equal("LegacyWindow", settings.Settings.WidgetShell.WallpaperHostCaptureMethod);
-        Assert.Equal(10d, editor.WallpaperCaptureRefreshIntervalSeconds);
-        Assert.Equal(10, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(1d, editor.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(1, settings.Settings.WidgetShell.WallpaperCaptureRefreshIntervalSeconds);
         Assert.Equal(3, committed);
     }
 

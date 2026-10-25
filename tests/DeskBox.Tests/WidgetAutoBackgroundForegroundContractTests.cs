@@ -33,6 +33,44 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
     }
 
     [Fact]
+    public void ActiveGlobalImageWinsOverPerWidgetColor()
+    {
+        EffectiveWidgetBackgroundLayer layer =
+            WidgetBackgroundCustomization.ResolveEffectiveLayer(
+                hasWidgetImageOverride: false,
+                hasWidgetImageAsset: false,
+                hasGlobalImage: true,
+                hasWidgetColor: true);
+
+        Assert.Equal(EffectiveWidgetBackgroundLayer.GlobalImage, layer);
+    }
+
+    [Fact]
+    public void MissingWidgetImageSuppressesGlobalImageAndCanFallBackToItsColor()
+    {
+        EffectiveWidgetBackgroundLayer layer =
+            WidgetBackgroundCustomization.ResolveEffectiveLayer(
+                hasWidgetImageOverride: true,
+                hasWidgetImageAsset: false,
+                hasGlobalImage: true,
+                hasWidgetColor: true);
+
+        Assert.Equal(EffectiveWidgetBackgroundLayer.PerWidgetColor, layer);
+    }
+
+    [Fact]
+    public void RendererAndAutomaticContrastUseTheSharedEffectiveLayer()
+    {
+        string renderer = Read("src/DeskBox/Views/WidgetWindowBase.TitleIconCustomization.cs");
+        string palette = Read("src/DeskBox/Services/WidgetForegroundPalette.cs");
+        string fileNames = Read("src/DeskBox/Controls/WidgetContents/FileSurfaceContent.Contrast.cs");
+
+        Assert.Contains("WidgetBackgroundCustomization.ResolveEffectiveLayer(Config, settings)", renderer, StringComparison.Ordinal);
+        Assert.Contains("WidgetBackgroundCustomization.ResolveEffectiveLayer(config, settings)", palette, StringComparison.Ordinal);
+        Assert.Contains("WidgetAutoBackgroundContrastPolicy.TryResolveSurface(", fileNames, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WidgetImageOverride_DoesNotSampleTheWallpaper()
     {
         var config = new WidgetConfig

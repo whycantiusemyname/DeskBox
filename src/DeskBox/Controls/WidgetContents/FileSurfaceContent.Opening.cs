@@ -329,6 +329,7 @@ public sealed partial class FileSurfaceContent
         if (!_isDisposed && sender is FileItemSurface surface)
         {
             ClearAdaptiveFilenameChoice(surface);
+            InvalidateAdaptiveNameGeometry(surface);
             ApplyOpeningStateToSurface(surface);
             // A recycled container can strand the expansion suppression: the
             // hidden label would stay hidden on whichever item inherits it.
@@ -338,6 +339,8 @@ public sealed partial class FileSurfaceContent
             {
                 HideAllNameExpansions();
             }
+
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
 
         }
     }

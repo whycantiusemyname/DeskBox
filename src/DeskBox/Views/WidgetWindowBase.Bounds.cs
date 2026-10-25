@@ -56,6 +56,7 @@ public abstract partial class WidgetWindowBase
 
         InstallDesktopPinnedActivationGuard();
         InstallDesktopPinnedPointerRouting();
+        InstallAutoForegroundGeometryWatcher();
         ConfigureWindowExtra();
 
         int style = Win32Helper.GetWindowLong(HWnd, Win32Helper.GWL_STYLE);
@@ -600,6 +601,7 @@ public abstract partial class WidgetWindowBase
         _observedRasterizationScale = scale;
         App.LogVerbose(
             $"[DisplayTopology] {LogPrefix} XamlRoot scale {previous:F3}->{scale:F3}");
+        QueueAutoForegroundGeometryRefresh(invalidateLocalGeometry: true);
         App.Current?.RequestDisplayTopologyRestore("xaml-root-scale");
     }
 

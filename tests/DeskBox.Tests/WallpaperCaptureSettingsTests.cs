@@ -42,7 +42,7 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
             new SettingsMigrationPipeline().RunMigrationsOnCopy(invalid);
         Assert.Equal("Auto", normalizedMinimum.WallpaperCaptureSource);
         Assert.Equal("Auto", normalizedMinimum.WallpaperHostCaptureMethod);
-        Assert.Equal(10, normalizedMinimum.WallpaperCaptureRefreshIntervalSeconds);
+        Assert.Equal(1, normalizedMinimum.WallpaperCaptureRefreshIntervalSeconds);
 
         AppSettings validAndHigh = new()
         {
@@ -69,7 +69,7 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
         coordinator.SetWallpaperHostCaptureMethod("FullWindow");
         coordinator.SetWallpaperCaptureRefreshIntervalSeconds(5);
         Assert.Equal(
-            new AppearanceWallpaperCaptureSettings("SystemWallpaper", "FullWindow", 10),
+            new AppearanceWallpaperCaptureSettings("SystemWallpaper", "FullWindow", 1),
             coordinator.ReadWallpaperCapture());
 
         coordinator.SetWallpaperCaptureSource("DesktopHost");

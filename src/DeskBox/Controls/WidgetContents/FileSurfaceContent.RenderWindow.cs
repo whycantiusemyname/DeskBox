@@ -213,6 +213,7 @@ public sealed partial class FileSurfaceContent
         // scrolling invalidates that position, so collapse it rather than
         // chase the item.
         HideNameExpansion(isPopoverView: false);
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
 
         // Grow while unrendered content remains and the user is within two
         // viewports of the rendered end, so scrolling never hits a wall.

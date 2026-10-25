@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "전체 창",
   "Settings.WallpaperCapture.Method.LegacyWindow": "기존 창",
   "Settings.WallpaperCapture.RefreshInterval.Title": "배경 화면 새로 고침 간격 (초)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "배경 화면 샘플을 얼마나 자주 갱신할지 설정합니다. 10~3600초를 선택하세요.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "배경 화면 샘플을 얼마나 자주 갱신할지 설정합니다. 1~3600초를 선택하세요.",
   "Settings.WidgetForeground.CustomColor.Title": "사용자 지정 텍스트 색",
   "Settings.WidgetForeground.CustomColor.Description": "위젯 텍스트와 단색 컨트롤의 색을 설정합니다. 자동 대비 조정은 적용되지 않습니다.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "색이 잘 보이지 않는 경우",

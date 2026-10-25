@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "完整窗口",
   "Settings.WallpaperCapture.Method.LegacyWindow": "传统窗口",
   "Settings.WallpaperCapture.RefreshInterval.Title": "壁纸刷新间隔（秒）",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "设置壁纸采样的更新频率，可设为 10 到 3600 秒。",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "设置壁纸采样的更新频率，可设为 1 到 3600 秒。",
   "Settings.WidgetForeground.CustomColor.Title": "自定义文字颜色",
   "Settings.WidgetForeground.CustomColor.Description": "设置格子文字与单色控件的颜色，不做自动对比度调整。",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "颜色看不清怎么办?",

@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "Janela inteira",
   "Settings.WallpaperCapture.Method.LegacyWindow": "Janela tradicional",
   "Settings.WallpaperCapture.RefreshInterval.Title": "Intervalo de atualização do papel de parede (segundos)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "Define a frequência de atualização da amostra do papel de parede. Escolha de 10 a 3600 segundos.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "Define a frequência de atualização da amostra do papel de parede. Escolha de 1 a 3600 segundos.",
   "Settings.WidgetForeground.CustomColor.Title": "Cor de texto personalizada",
   "Settings.WidgetForeground.CustomColor.Description": "Define a cor do texto dos widgets e dos controles monocromáticos; sem ajuste automático de contraste.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "E se a cor for difícil de ler?",

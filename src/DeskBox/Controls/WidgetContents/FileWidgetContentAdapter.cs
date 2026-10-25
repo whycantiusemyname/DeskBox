@@ -184,6 +184,9 @@ public sealed class FileWidgetContentAdapter :
     internal void RefreshAdaptiveFilenameContrast() =>
         Surface?.RefreshAdaptiveFilenameContrast();
 
+    internal void RefreshAdaptiveFilenameContrastForWindowGeometry(bool localGeometryChanged) =>
+        Surface?.RefreshAdaptiveFilenameContrastForWindowGeometry(localGeometryChanged);
+
     public override void OnActivated()
     {
         Surface?.OnActivated();

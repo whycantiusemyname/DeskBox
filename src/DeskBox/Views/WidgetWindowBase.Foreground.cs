@@ -15,16 +15,34 @@ namespace DeskBox.Views;
 
 public abstract partial class WidgetWindowBase
 {
+    private const uint WmWindowPosChanged = 0x0047;
+    private const uint WmDpiChanged = 0x02E0;
+    private static readonly UIntPtr AutoForegroundGeometrySubclassId = new(0xDDB6);
+
     private AccessibilitySettings? _foregroundAccessibilitySettings;
-    private DispatcherQueueTimer? _autoForegroundTimer;
     private IDisposable? _autoForegroundLease;
+    private IDisposable? _autoForegroundSnapshotSubscription;
     private AutoForegroundSampleState? _headerAutoSample;
     private AutoForegroundSampleState? _bodyAutoSample;
+    private WallpaperContrastRect? _headerAutoLocalBounds;
+    private WallpaperContrastRect? _bodyAutoLocalBounds;
+    private Win32Helper.POINT _autoForegroundClientOrigin;
+    private double _autoForegroundDpiScale;
+    private bool _autoForegroundScreenTransformValid;
     private string? _lastAutoCaptureSignature;
     private bool _autoForegroundRefreshQueued;
+    private bool _autoForegroundSampleQueued;
+    private bool _autoForegroundLocalGeometryInvalidationPending;
+    private Win32Helper.SubclassProc? _autoForegroundGeometrySubclassProc;
+    private bool _isAutoForegroundGeometrySubclassInstalled;
+    private FrameworkElement? _autoForegroundHeaderElement;
+    private FrameworkElement? _autoForegroundBodyElement;
 
     protected void ApplyWidgetForegroundAppearance()
     {
+        _headerAutoLocalBounds = null;
+        _bodyAutoLocalBounds = null;
+        _autoForegroundScreenTransformValid = false;
         EnsureForegroundAccessibilityWatcher();
         bool highContrast = _foregroundAccessibilitySettings?.HighContrast == true;
         string mode = WidgetForegroundSettings.ResolveMode(
@@ -201,6 +219,145 @@ public abstract partial class WidgetWindowBase
         }
     }
 
+    private void InstallAutoForegroundGeometryWatcher()
+    {
+        RootElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+        RootElement.SizeChanged += RootElement_SizeChangedForAutoForeground;
+        _autoForegroundHeaderElement = WidgetShellControl.ForegroundHeaderSampleElement;
+        _autoForegroundBodyElement = WidgetShellControl.ForegroundBodySampleElement;
+        if (_autoForegroundHeaderElement is not null)
+        {
+            _autoForegroundHeaderElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+            _autoForegroundHeaderElement.SizeChanged += RootElement_SizeChangedForAutoForeground;
+        }
+        if (_autoForegroundBodyElement is not null)
+        {
+            _autoForegroundBodyElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+            _autoForegroundBodyElement.SizeChanged += RootElement_SizeChangedForAutoForeground;
+        }
+        if (HWnd == IntPtr.Zero || _isAutoForegroundGeometrySubclassInstalled)
+        {
+            return;
+        }
+
+        _autoForegroundGeometrySubclassProc ??=
+            CallbackDepth.WrapSubclassProc(AutoForegroundGeometrySubclassProc);
+        _isAutoForegroundGeometrySubclassInstalled = Win32Helper.SetWindowSubclass(
+            HWnd,
+            _autoForegroundGeometrySubclassProc,
+            AutoForegroundGeometrySubclassId,
+            UIntPtr.Zero);
+    }
+
+    private void RemoveAutoForegroundGeometryWatcher()
+    {
+        RootElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+        if (_autoForegroundHeaderElement is not null)
+        {
+            _autoForegroundHeaderElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+            _autoForegroundHeaderElement = null;
+        }
+        if (_autoForegroundBodyElement is not null)
+        {
+            _autoForegroundBodyElement.SizeChanged -= RootElement_SizeChangedForAutoForeground;
+            _autoForegroundBodyElement = null;
+        }
+        if (_isAutoForegroundGeometrySubclassInstalled &&
+            _autoForegroundGeometrySubclassProc is not null)
+        {
+            _ = Win32Helper.RemoveWindowSubclass(
+                HWnd,
+                _autoForegroundGeometrySubclassProc,
+                AutoForegroundGeometrySubclassId);
+        }
+
+        _isAutoForegroundGeometrySubclassInstalled = false;
+        _autoForegroundGeometrySubclassProc = null;
+    }
+
+    private IntPtr AutoForegroundGeometrySubclassProc(
+        IntPtr hWnd,
+        uint message,
+        UIntPtr wParam,
+        IntPtr lParam,
+        UIntPtr subclassId,
+        UIntPtr referenceData)
+    {
+        if (message == WmWindowPosChanged || message == WmDpiChanged)
+        {
+            QueueAutoForegroundGeometryRefresh(invalidateLocalGeometry: message == WmDpiChanged);
+        }
+
+        return Win32Helper.DefSubclassProc(hWnd, message, wParam, lParam);
+    }
+
+    private void RootElement_SizeChangedForAutoForeground(
+        object sender,
+        SizeChangedEventArgs args) =>
+        QueueAutoForegroundGeometryRefresh(invalidateLocalGeometry: true);
+
+    private void QueueAutoForegroundGeometryRefresh(bool invalidateLocalGeometry)
+    {
+        if (IsClosing)
+        {
+            return;
+        }
+
+        _autoForegroundLocalGeometryInvalidationPending |= invalidateLocalGeometry;
+        if (_autoForegroundGeometryRefreshQueued)
+        {
+            return;
+        }
+
+        _autoForegroundGeometryRefreshQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+            {
+                _autoForegroundGeometryRefreshQueued = false;
+                bool invalidateLocal = _autoForegroundLocalGeometryInvalidationPending;
+                _autoForegroundLocalGeometryInvalidationPending = false;
+                if (IsClosing)
+                {
+                    return;
+                }
+
+                if (invalidateLocal)
+                {
+                    _headerAutoLocalBounds = null;
+                    _bodyAutoLocalBounds = null;
+                }
+
+                _autoForegroundScreenTransformValid = false;
+                OnWindowGeometryChanged(invalidateLocal);
+                RefreshAutoForegroundAfterGeometryChange();
+            }))
+        {
+            _autoForegroundGeometryRefreshQueued = false;
+        }
+    }
+
+    private void RefreshAutoForegroundAfterGeometryChange()
+    {
+        if (WidgetForegroundSettings.ResolveMode(Config, SettingsService.Settings) !=
+                WidgetForegroundSettings.ModeAutoBackground ||
+            !CanSampleAutoForeground() ||
+            (WidgetShellControl.IsCollapsed &&
+             WidgetShellControl.CompactPresentationOwnsForegroundContract) ||
+            !TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface))
+        {
+            return;
+        }
+
+        if (surface.OverlayOpacity >= 1)
+        {
+            return;
+        }
+
+        StartAutoForegroundSampling();
+        SampleAutoForegroundContrast(surface);
+    }
+
+    protected virtual void OnWindowGeometryChanged(bool localGeometryChanged) { }
+
     private void ForegroundAccessibilitySettings_HighContrastChanged(
         AccessibilitySettings sender,
         object args)
@@ -372,49 +529,42 @@ public abstract partial class WidgetWindowBase
 
     private void StartAutoForegroundSampling()
     {
+        _autoForegroundSnapshotSubscription ??=
+            WallpaperContrastService.SubscribeToSnapshotChanges(
+                DispatcherQueue,
+                _ => QueueAutoForegroundSampling());
         _autoForegroundLease ??= WallpaperContrastService.Acquire();
-        if (_autoForegroundTimer is null)
-        {
-            _autoForegroundTimer = DispatcherQueue.CreateTimer();
-            _autoForegroundTimer.Interval = TimeSpan.FromMilliseconds(150);
-            _autoForegroundTimer.Tick += AutoForegroundTimer_Tick;
-            PerformanceLogger.RecordTransientUiTimerCreated();
-        }
-
-        if (!_autoForegroundTimer.IsRunning)
-        {
-            _autoForegroundTimer.Start();
-        }
     }
 
-    private void AutoForegroundTimer_Tick(
-        DispatcherQueueTimer sender,
-        object args)
+    private void QueueAutoForegroundSampling()
     {
-        if (IsClosing)
+        if (IsClosing || _autoForegroundSampleQueued)
         {
-            StopAutoForegroundSampling(clearState: true);
             return;
         }
 
-        if (WidgetForegroundSettings.ResolveMode(
-                Config,
-                SettingsService.Settings) != WidgetForegroundSettings.ModeAutoBackground ||
-            !CanSampleAutoForeground() ||
-            (WidgetShellControl.IsCollapsed &&
-             WidgetShellControl.CompactPresentationOwnsForegroundContract) ||
-            !TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface) ||
-            surface.OverlayOpacity >= 1)
-        {
-            // A gate changed without a settings/visibility callback reaching
-            // this window (for example a monitor material fallback). Rebuild
-            // the base palette and stop the timer instead of sampling stale
-            // geometry forever.
-            ApplyWidgetForegroundAppearance();
-            return;
-        }
+        _autoForegroundSampleQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+            {
+                _autoForegroundSampleQueued = false;
+                if (IsClosing ||
+                    WidgetForegroundSettings.ResolveMode(
+                        Config,
+                        SettingsService.Settings) != WidgetForegroundSettings.ModeAutoBackground ||
+                    !CanSampleAutoForeground() ||
+                    (WidgetShellControl.IsCollapsed &&
+                     WidgetShellControl.CompactPresentationOwnsForegroundContract) ||
+                    !TryResolveAutoBackgroundSurface(out WidgetAutoBackgroundSurface surface) ||
+                    surface.OverlayOpacity >= 1)
+                {
+                    return;
+                }
 
-        SampleAutoForegroundContrast(surface);
+                SampleAutoForegroundContrast(surface);
+            }))
+        {
+            _autoForegroundSampleQueued = false;
+        }
     }
 
     private void SampleAutoForegroundContrast(WidgetAutoBackgroundSurface surface)
@@ -449,6 +599,7 @@ public abstract partial class WidgetWindowBase
         palette = default;
         if (!TryGetAutoForegroundScreenBounds(
                 element,
+                header,
                 out WallpaperContrastRect screenBounds))
         {
             return false;
@@ -523,34 +674,27 @@ public abstract partial class WidgetWindowBase
 
     private bool TryGetAutoForegroundScreenBounds(
         FrameworkElement element,
+        bool header,
         out WallpaperContrastRect screenBounds)
     {
         screenBounds = default;
-        if (element.ActualWidth <= 0 || element.ActualHeight <= 0 ||
-            RootElement.ActualWidth <= 0 || RootElement.ActualHeight <= 0)
+        WallpaperContrastRect? cachedLocalBounds = header
+            ? _headerAutoLocalBounds
+            : _bodyAutoLocalBounds;
+        if (cachedLocalBounds is null)
         {
-            return false;
+            if (!TryGetAutoForegroundLocalBounds(element, out WallpaperContrastRect localBounds))
+            {
+                return false;
+            }
+
+            cachedLocalBounds = localBounds;
+            if (header) _headerAutoLocalBounds = localBounds;
+            else _bodyAutoLocalBounds = localBounds;
         }
 
-        try
+        if (!_autoForegroundScreenTransformValid)
         {
-            var localBounds = new Windows.Foundation.Rect(
-                0,
-                0,
-                element.ActualWidth,
-                element.ActualHeight);
-            var viewportBounds = new Windows.Foundation.Rect(
-                0,
-                0,
-                RootElement.ActualWidth,
-                RootElement.ActualHeight);
-            Windows.Foundation.Rect elementInRoot = element.TransformToVisual(null)
-                .TransformBounds(localBounds);
-            Windows.Foundation.Rect viewportInRoot = RootElement.TransformToVisual(null)
-                .TransformBounds(viewportBounds);
-            Windows.Foundation.Rect visible = Intersect(elementInRoot, viewportInRoot);
-            if (visible.Width <= 0 || visible.Height <= 0) return false;
-
             var clientOrigin = default(Win32Helper.POINT);
             if (!Win32Helper.ClientToScreen(HWnd, ref clientOrigin))
             {
@@ -565,12 +709,55 @@ public abstract partial class WidgetWindowBase
                 return false;
             }
 
-            screenBounds = new WallpaperContrastRect(
-                clientOrigin.X + (visible.X * scale),
-                clientOrigin.Y + (visible.Y * scale),
-                clientOrigin.X + ((visible.X + visible.Width) * scale),
-                clientOrigin.Y + ((visible.Y + visible.Height) * scale));
-            return screenBounds.Width > 0 && screenBounds.Height > 0;
+            _autoForegroundClientOrigin = clientOrigin;
+            _autoForegroundDpiScale = scale;
+            _autoForegroundScreenTransformValid = true;
+        }
+
+        screenBounds = WallpaperContrastGeometry.ToScreen(
+            cachedLocalBounds.Value,
+            _autoForegroundClientOrigin.X,
+            _autoForegroundClientOrigin.Y,
+            _autoForegroundDpiScale);
+        return screenBounds.Width > 0 && screenBounds.Height > 0;
+    }
+
+    private bool TryGetAutoForegroundLocalBounds(
+        FrameworkElement element,
+        out WallpaperContrastRect localBounds)
+    {
+        localBounds = default;
+        if (element.ActualWidth <= 0 || element.ActualHeight <= 0 ||
+            RootElement.ActualWidth <= 0 || RootElement.ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var elementBounds = new Windows.Foundation.Rect(
+                0,
+                0,
+                element.ActualWidth,
+                element.ActualHeight);
+            var rootBounds = new Windows.Foundation.Rect(
+                0,
+                0,
+                RootElement.ActualWidth,
+                RootElement.ActualHeight);
+            Windows.Foundation.Rect elementInRoot = element.TransformToVisual(null)
+                .TransformBounds(elementBounds);
+            Windows.Foundation.Rect rootInRoot = RootElement.TransformToVisual(null)
+                .TransformBounds(rootBounds);
+            Windows.Foundation.Rect visible = Intersect(elementInRoot, rootInRoot);
+            if (visible.Width <= 0 || visible.Height <= 0) return false;
+
+            localBounds = new WallpaperContrastRect(
+                visible.X,
+                visible.Y,
+                visible.X + visible.Width,
+                visible.Y + visible.Height);
+            return true;
         }
         catch (Exception ex)
         {
@@ -655,18 +842,15 @@ public abstract partial class WidgetWindowBase
     {
         _headerAutoSample = null;
         _bodyAutoSample = null;
+        _headerAutoLocalBounds = null;
+        _bodyAutoLocalBounds = null;
+        _autoForegroundScreenTransformValid = false;
     }
 
     private void StopAutoForegroundSampling(bool clearState)
     {
-        if (_autoForegroundTimer is not null)
-        {
-            _autoForegroundTimer.Stop();
-            _autoForegroundTimer.Tick -= AutoForegroundTimer_Tick;
-            _autoForegroundTimer = null;
-            PerformanceLogger.RecordTransientUiTimerReleased();
-        }
-
+        _autoForegroundSnapshotSubscription?.Dispose();
+        _autoForegroundSnapshotSubscription = null;
         _autoForegroundLease?.Dispose();
         _autoForegroundLease = null;
         if (clearState)

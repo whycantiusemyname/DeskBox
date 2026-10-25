@@ -70,7 +70,9 @@ internal static class WidgetAutoBackgroundContrastPolicy
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(settings);
 
-        if (WidgetBackgroundCustomization.GetImageFileNameOverride(config) is not null)
+        EffectiveWidgetBackgroundLayer layer =
+            WidgetBackgroundCustomization.ResolveEffectiveLayer(config, settings);
+        if (layer == EffectiveWidgetBackgroundLayer.WidgetImageOverride)
         {
             surface = new WidgetAutoBackgroundSurface(
                 WidgetAutoBackgroundSupport.WidgetImageOverride,
@@ -80,7 +82,18 @@ internal static class WidgetAutoBackgroundContrastPolicy
             return false;
         }
 
-        if (WidgetBackgroundCustomization.GetColorOverride(config) is { } solidHex &&
+        if (layer == EffectiveWidgetBackgroundLayer.GlobalImage)
+        {
+            surface = new WidgetAutoBackgroundSurface(
+                WidgetAutoBackgroundSupport.GlobalImageBackground,
+                HasSolidWidgetBackground: false,
+                OverlayColor: default,
+                OverlayOpacity: 0);
+            return false;
+        }
+
+        if (layer == EffectiveWidgetBackgroundLayer.PerWidgetColor &&
+            WidgetBackgroundCustomization.GetColorOverride(config) is { } solidHex &&
             AccentColorHelper.TryParseHex(solidHex, out Color widgetBackgroundColor))
         {
             surface = new WidgetAutoBackgroundSurface(
@@ -89,16 +102,6 @@ internal static class WidgetAutoBackgroundContrastPolicy
                 OverlayColor: widgetBackgroundColor,
                 OverlayOpacity: 1);
             return true;
-        }
-
-        if (WidgetBackgroundCustomization.IsGlobalImageBackgroundActive(settings))
-        {
-            surface = new WidgetAutoBackgroundSurface(
-                WidgetAutoBackgroundSupport.GlobalImageBackground,
-                HasSolidWidgetBackground: false,
-                OverlayColor: default,
-                OverlayOpacity: 0);
-            return false;
         }
 
         if (WindowsCompatibilityService.ResolveWidgetMaterialType(

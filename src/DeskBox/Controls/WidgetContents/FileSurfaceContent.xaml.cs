@@ -249,10 +249,13 @@ public sealed partial class FileSurfaceContent :
             TransferSessions_StateChanged;
         InitializeStackPopoverLifecycle();
         ActualThemeChanged += FileSurfaceContent_ActualThemeChanged;
+        FileItemsViewport.SizeChanged += FileItemsViewport_SizeChangedForContrast;
+        NameExpansionText.SizeChanged += ExpandedNameText_SizeChangedForContrast;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         _settingsService.SettingsChanged += FileSurfaceContent_SettingsChanged;
         UpdateEmptyState();
+        ViewModel.RenderedItems.CollectionChanged += RenderedItems_CollectionChangedForContrast;
     }
 
     public WidgetViewModel ViewModel { get; }
@@ -403,6 +406,7 @@ public sealed partial class FileSurfaceContent :
         ApplySelectionRectangleAppearance();
         UpdateItemSurfaceVisuals();
         UpdateStackPopoverAppearance();
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
     }
 
     private void ApplyAccentVisuals()
@@ -5656,6 +5660,7 @@ public sealed partial class FileSurfaceContent :
 
             RefreshItemSelectionVisuals();
             UpdateSelectionCommandBar();
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
             if (!e.AddedItems.OfType<WidgetItem>()
                     .Any(added =>
                         added is not WidgetStackItem &&
@@ -5706,6 +5711,7 @@ public sealed partial class FileSurfaceContent :
 
         RefreshItemSelectionVisuals();
         UpdateSelectionCommandBar();
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
     }
 
     private void UpdateSelectionCommandBar()
@@ -6305,6 +6311,8 @@ public sealed partial class FileSurfaceContent :
         CancelPendingSlowClickRename();
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
+        FileItemsViewport.SizeChanged -= FileItemsViewport_SizeChangedForContrast;
+        NameExpansionText.SizeChanged -= ExpandedNameText_SizeChangedForContrast;
         _settingsService.SettingsChanged -= FileSurfaceContent_SettingsChanged;
         StopAdaptiveFilenameContrast(clearLabels: true);
         DisposeContrastAccessibilityWatcher();
@@ -6312,6 +6320,7 @@ public sealed partial class FileSurfaceContent :
         DisposeScrollBarActivityTracking();
         ActualThemeChanged -= FileSurfaceContent_ActualThemeChanged;
         ViewModel.Items.CollectionChanged -= Items_CollectionChanged;
+        ViewModel.RenderedItems.CollectionChanged -= RenderedItems_CollectionChangedForContrast;
         _fileService.TransferSessions.StateChanged -=
             TransferSessions_StateChanged;
         ResetDragPayloadCache();

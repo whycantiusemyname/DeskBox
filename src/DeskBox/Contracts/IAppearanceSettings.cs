@@ -180,7 +180,7 @@ public static class WallpaperCapturePreferenceKinds
     public const string MethodLegacyWindow = "LegacyWindow";
 
     public const int DefaultRefreshIntervalSeconds = 60;
-    public const int MinRefreshIntervalSeconds = 10;
+    public const int MinRefreshIntervalSeconds = 1;
     public const int MaxRefreshIntervalSeconds = 3600;
 
     public static string NormalizeSource(string? source) =>

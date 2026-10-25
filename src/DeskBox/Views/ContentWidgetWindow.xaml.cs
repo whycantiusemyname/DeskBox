@@ -722,6 +722,15 @@ public sealed partial class ContentWidgetWindow : WidgetWindowBase, IDesktopWidg
         }
     }
 
+    protected override void OnWindowGeometryChanged(bool localGeometryChanged)
+    {
+        base.OnWindowGeometryChanged(localGeometryChanged);
+        if (CurrentContent is FileWidgetContentAdapter file)
+        {
+            file.RefreshAdaptiveFilenameContrastForWindowGeometry(localGeometryChanged);
+        }
+    }
+
     // ── IDesktopWidgetWindow implementation ────────────────────
 
     public IntPtr WindowHandle => HWnd;

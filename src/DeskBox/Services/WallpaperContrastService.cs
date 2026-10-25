@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using DeskBox.Platform;
+using Microsoft.UI.Dispatching;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.UI;
@@ -17,6 +18,7 @@ internal static class WallpaperContrastService
     private static readonly object s_gate = new();
     private static readonly object s_optionsGate = new();
     private static readonly object s_captureWorkerGate = new();
+    private static readonly WallpaperSnapshotChangedSource s_snapshotChanged = new();
     private static readonly Dictionary<string, CachedBitmap> s_bitmapCache =
         new(StringComparer.OrdinalIgnoreCase);
     private static WallpaperSnapshot? s_snapshot;
@@ -105,6 +107,17 @@ internal static class WallpaperContrastService
 
     public static long SnapshotVersion =>
         Volatile.Read(ref s_snapshot)?.Version ?? 0;
+
+    public static IDisposable SubscribeToSnapshotChanges(
+        DispatcherQueue dispatcherQueue,
+        Action<long> callback)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcherQueue);
+        ArgumentNullException.ThrowIfNull(callback);
+        return s_snapshotChanged.Subscribe(
+            action => dispatcherQueue.TryEnqueue(() => action()),
+            callback);
+    }
 
     private static async Task RefreshLoopAsync(CancellationToken cancellationToken)
     {
@@ -397,6 +410,7 @@ internal static class WallpaperContrastService
                 Interlocked.Increment(ref s_snapshotVersion));
             Volatile.Write(ref s_snapshot, snapshot);
             Volatile.Write(ref s_lastRefreshError, null);
+            s_snapshotChanged.Publish(snapshot.Version);
             string monitorSummary = string.Join(";", data.Monitors.Select(monitor =>
                 $"{monitor.Bounds.Left:F0},{monitor.Bounds.Top:F0}-" +
                 $"{monitor.Bounds.Right:F0},{monitor.Bounds.Bottom:F0}:" +

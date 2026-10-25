@@ -497,7 +497,7 @@ Text="DeskBox" />
                                     </toolkit:SettingsCard.HeaderIcon>
                                     <NumberBox svc:Localized.AutomationNameKey="Settings.WallpaperCapture.RefreshInterval.Title"
                                         Maximum="3600"
-                                        Minimum="10"
+                                        Minimum="1"
                                         SmallChange="10"
                                         Style="{StaticResource CompactNumberBoxStyle}"
                                         Value="{Binding WallpaperCaptureRefreshIntervalSeconds, Mode=TwoWay}" />

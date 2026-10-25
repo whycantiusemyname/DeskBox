@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "Vollständiges Fenster",
   "Settings.WallpaperCapture.Method.LegacyWindow": "Herkömmliches Fenster",
   "Settings.WallpaperCapture.RefreshInterval.Title": "Aktualisierungsintervall (Sekunden)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "Legt fest, wie oft die Hintergrundprobe aktualisiert wird. Wähle 10 bis 3600 Sekunden.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "Legt fest, wie oft die Hintergrundprobe aktualisiert wird. Wähle 1 bis 3600 Sekunden.",
   "Settings.WidgetForeground.CustomColor.Title": "Benutzerdefinierte Textfarbe",
   "Settings.WidgetForeground.CustomColor.Description": "Legt die Farbe von Widget-Text und einfarbigen Steuerelementen fest; ohne automatische Kontrastanpassung.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "Was, wenn die Farbe schwer lesbar ist?",

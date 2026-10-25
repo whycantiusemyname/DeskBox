@@ -28,7 +28,7 @@ internal sealed record WallpaperCaptureOptions(
     {
         Source = Enum.IsDefined(typeof(WallpaperContrastSource), Source) ? Source : WallpaperContrastSource.Auto,
         Method = Enum.IsDefined(typeof(WallpaperHostCaptureMethod), Method) ? Method : WallpaperHostCaptureMethod.Auto,
-        RefreshIntervalSeconds = Math.Clamp(RefreshIntervalSeconds, 10, 3600)
+        RefreshIntervalSeconds = Math.Clamp(RefreshIntervalSeconds, 1, 3600)
     };
 }
 

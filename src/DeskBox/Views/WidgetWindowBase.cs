@@ -328,6 +328,7 @@ public abstract partial class WidgetWindowBase : Window
         App.Current?.ResizeGuideOverlay?.EndResize();
         RemoveDesktopPinnedPointerRouting();
         RemoveDesktopPinnedActivationGuard();
+        RemoveAutoForegroundGeometryWatcher();
         WidgetShellControl.HostedContentChanged -= WidgetShellControl_HostedContentChanged;
         WidgetShellControl.CompactForegroundContractChanged -=
             WidgetShellControl_CompactForegroundContractChanged;

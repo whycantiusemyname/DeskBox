@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "সম্পূর্ণ উইন্ডো",
   "Settings.WallpaperCapture.Method.LegacyWindow": "প্রচলিত উইন্ডো",
   "Settings.WallpaperCapture.RefreshInterval.Title": "ওয়ালপেপার রিফ্রেশের ব্যবধান (সেকেন্ড)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "ওয়ালপেপার নমুনা কত ঘন ঘন আপডেট হবে। 10 থেকে 3600 সেকেন্ড বেছে নিন।",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "ওয়ালপেপার নমুনা কত ঘন ঘন আপডেট হবে। 1 থেকে 3600 সেকেন্ড বেছে নিন।",
   "Settings.WidgetForeground.CustomColor.Title": "কাস্টম লেখার রঙ",
   "Settings.WidgetForeground.CustomColor.Description": "উইজেটের লেখা ও একরঙা নিয়ন্ত্রণের রঙ নির্ধারণ করুন; কনট্রাস্ট স্বয়ংক্রিয়ভাবে সামঞ্জস্য হয় না।",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "রঙ পড়তে কষ্ট হলে কী করবেন?",

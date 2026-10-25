@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "全ウィンドウ",
   "Settings.WallpaperCapture.Method.LegacyWindow": "従来のウィンドウ",
   "Settings.WallpaperCapture.RefreshInterval.Title": "壁紙の更新間隔（秒）",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "壁紙サンプルを更新する間隔です。10～3600 秒で指定してください。",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "壁紙サンプルを更新する間隔です。1～3600 秒で指定してください。",
   "Settings.WidgetForeground.CustomColor.Title": "カスタム文字色",
   "Settings.WidgetForeground.CustomColor.Description": "ウィジェットの文字と単色コントロールの色を設定します。コントラストは自動調整されません。",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "色が読みにくい場合は？",

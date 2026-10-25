@@ -17,28 +17,93 @@ public sealed partial class FileSurfaceContent
 {
     private readonly Dictionary<FileItemSurface, AdaptiveNameSampleState> _adaptiveNameChoices =
         new(ReferenceEqualityComparer.Instance);
-    private DispatcherTimer? _adaptiveContrastTimer;
+    private readonly WallpaperContrastGeometryCache<FileItemSurface, AdaptiveNameGeometry> _adaptiveNameGeometry =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<WidgetItem, int> _adaptiveItemIndexes =
+        new(ReferenceEqualityComparer.Instance);
     private IDisposable? _wallpaperContrastLease;
+    private IDisposable? _wallpaperSnapshotSubscription;
     private AccessibilitySettings? _contrastAccessibilitySettings;
     private bool _isContrastSurfaceLoaded;
+    private bool _adaptiveContrastSampleQueued;
+    private bool _adaptiveNameGeometryInvalidationPending;
+    private DispatcherQueueTimer? _adaptiveRepositionRefreshTimer;
+    private DateTime _adaptiveRepositionRefreshUntilUtc;
+    private bool _adaptiveItemIndexesDirty = true;
+    private bool _adaptiveGridOriginValid;
+    private Windows.Foundation.Point _adaptiveGridOriginInViewport;
+    private bool _adaptiveViewportOriginValid;
+    private Windows.Foundation.Point _adaptiveViewportOriginInRoot;
+    private bool _adaptiveScreenTransformValid;
+    private Win32Helper.POINT _adaptiveClientOrigin;
+    private double _adaptiveDpiScale;
+    private TextBlock? _expandedAdaptiveLabel;
+    private WallpaperContrastRect? _expandedAdaptiveBounds;
     private string? _lastContrastGateSignature;
     private DateTime _lastContrastGateDiagnosticUtc = DateTime.MinValue;
     private string? _lastContrastPassSignature;
     private DateTime _lastContrastPassDiagnosticUtc = DateTime.MinValue;
 
     internal void RefreshAdaptiveFilenameContrast() =>
-        UpdateAdaptiveFilenameContrast();
+        UpdateAdaptiveFilenameContrast(invalidateGeometry: false);
 
     private void FileSurfaceContent_SettingsChanged() =>
-        UpdateAdaptiveFilenameContrast();
+        UpdateAdaptiveFilenameContrast(invalidateGeometry: false);
 
-    private void UpdateAdaptiveFilenameContrast()
+    private void FileItemsViewport_SizeChangedForContrast(
+        object sender,
+        SizeChangedEventArgs e) =>
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: true);
+
+    private void ExpandedNameText_SizeChangedForContrast(
+        object sender,
+        SizeChangedEventArgs e)
+    {
+        _expandedAdaptiveLabel = null;
+        _expandedAdaptiveBounds = null;
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+    }
+
+    private void RenderedItems_CollectionChangedForContrast(
+        object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        OnAdaptiveFilenameContrastItemsChanged(e);
+
+    private void ItemSurface_SizeChangedForContrast(
+        object sender,
+        SizeChangedEventArgs e)
+    {
+        if (sender is FileItemSurface surface)
+        {
+            InvalidateAdaptiveNameGeometry(surface);
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+        }
+    }
+
+    private void ItemNameText_SizeChangedForContrast(
+        object sender,
+        SizeChangedEventArgs e)
+    {
+        if (sender is TextBlock text && FileItemSurface.FindOwner(text) is { } surface)
+        {
+            InvalidateAdaptiveNameGeometry(surface);
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+        }
+    }
+
+    private void UpdateAdaptiveFilenameContrast(bool invalidateGeometry = true)
     {
         if (_isDisposed) return;
         if (!DispatcherQueue.HasThreadAccess)
         {
-            DispatcherQueue.TryEnqueue(UpdateAdaptiveFilenameContrast);
+            DispatcherQueue.TryEnqueue(() => UpdateAdaptiveFilenameContrast(invalidateGeometry));
             return;
+        }
+
+        if (invalidateGeometry)
+        {
+            InvalidateAdaptiveNameGeometry();
+            _adaptiveScreenTransformValid = false;
         }
 
         WidgetShellSettingsSlice captureSettings = _settingsService.Settings.WidgetShell;
@@ -110,27 +175,161 @@ public sealed partial class FileSurfaceContent
             return;
         }
 
+        _wallpaperSnapshotSubscription ??=
+            WallpaperContrastService.SubscribeToSnapshotChanges(
+                DispatcherQueue,
+                _ => QueueAdaptiveFilenameContrastSample(invalidateGeometry: false));
         _wallpaperContrastLease ??= WallpaperContrastService.Acquire();
-        if (_adaptiveContrastTimer is null)
-        {
-            _adaptiveContrastTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(150)
-            };
-            _adaptiveContrastTimer.Tick += AdaptiveContrastTimer_Tick;
-        }
-
-        if (!_adaptiveContrastTimer.IsEnabled)
-        {
-            _adaptiveContrastTimer.Start();
-        }
 
         SampleAdaptiveFilenameContrast();
     }
 
-    private void AdaptiveContrastTimer_Tick(object? sender, object e)
+    internal void RefreshAdaptiveFilenameContrastForWindowGeometry(bool localGeometryChanged)
     {
-        SampleAdaptiveFilenameContrast();
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _adaptiveScreenTransformValid = false;
+        if (localGeometryChanged)
+        {
+            InvalidateAdaptiveNameGeometry();
+        }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+    }
+
+    internal void OnAdaptiveFilenameContrastViewportSizeChanged() =>
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: true);
+
+    internal void OnAdaptiveFilenameContrastItemsChanged(
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs args)
+    {
+        if (args.Action is not System.Collections.Specialized.NotifyCollectionChangedAction.Replace)
+        {
+            StartAdaptiveRepositionRefresh();
+        }
+
+        _adaptiveItemIndexesDirty = true;
+        foreach (FileItemSurface surface in _adaptiveNameGeometry.Entries
+                     .Where(pair => !pair.Value.IsIcon)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _adaptiveNameGeometry.Remove(surface);
+        }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+    }
+
+    private void StartAdaptiveRepositionRefresh()
+    {
+        if (_isDisposed || _wallpaperContrastLease is null ||
+            !_isContrastSurfaceLoaded || !_isWindowVisible)
+        {
+            return;
+        }
+
+        _adaptiveRepositionRefreshUntilUtc = DateTime.UtcNow.AddMilliseconds(450);
+        if (_adaptiveRepositionRefreshTimer is null)
+        {
+            _adaptiveRepositionRefreshTimer = DispatcherQueue.CreateTimer();
+            _adaptiveRepositionRefreshTimer.Interval = TimeSpan.FromMilliseconds(33);
+            _adaptiveRepositionRefreshTimer.IsRepeating = true;
+            _adaptiveRepositionRefreshTimer.Tick += AdaptiveRepositionRefreshTimer_Tick;
+            _adaptiveRepositionRefreshTimer.Start();
+        }
+    }
+
+    private void AdaptiveRepositionRefreshTimer_Tick(
+        DispatcherQueueTimer sender,
+        object args)
+    {
+        if (_isDisposed || _wallpaperContrastLease is null ||
+            DateTime.UtcNow >= _adaptiveRepositionRefreshUntilUtc)
+        {
+            StopAdaptiveRepositionRefresh();
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+            return;
+        }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+    }
+
+    private void StopAdaptiveRepositionRefresh()
+    {
+        if (_adaptiveRepositionRefreshTimer is not { } timer)
+        {
+            return;
+        }
+
+        timer.Stop();
+        timer.Tick -= AdaptiveRepositionRefreshTimer_Tick;
+        _adaptiveRepositionRefreshTimer = null;
+    }
+
+    private void QueueAdaptiveFilenameContrastSample(bool invalidateGeometry)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _adaptiveNameGeometryInvalidationPending |= invalidateGeometry;
+        if (_adaptiveContrastSampleQueued)
+        {
+            return;
+        }
+
+        _adaptiveContrastSampleQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+            {
+                _adaptiveContrastSampleQueued = false;
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                if (_adaptiveNameGeometryInvalidationPending)
+                {
+                    _adaptiveNameGeometryInvalidationPending = false;
+                    InvalidateAdaptiveNameGeometry();
+                }
+
+                SampleAdaptiveFilenameContrast();
+            }))
+        {
+            _adaptiveContrastSampleQueued = false;
+        }
+    }
+
+    private void InvalidateAdaptiveNameGeometry(FileItemSurface? surface = null)
+    {
+        if (surface is null)
+        {
+            _adaptiveNameGeometry.Clear();
+            _expandedAdaptiveLabel = null;
+            _expandedAdaptiveBounds = null;
+            _adaptiveGridOriginValid = false;
+            _adaptiveViewportOriginValid = false;
+            return;
+        }
+
+        if (surface.Mode == FileItemSurfaceMode.List)
+        {
+            foreach (FileItemSurface listSurface in _adaptiveNameGeometry.Entries
+                         .Where(pair => !pair.Value.IsIcon)
+                         .Select(pair => pair.Key)
+                         .ToArray())
+            {
+                _adaptiveNameGeometry.Remove(listSurface);
+            }
+        }
+        else
+        {
+            _adaptiveNameGeometry.Remove(surface);
+        }
     }
 
     private void SampleAdaptiveFilenameContrast()
@@ -176,57 +375,36 @@ public sealed partial class FileSurfaceContent
         int skippedBounds = 0;
         int skippedUnavailable = 0;
         string? sampleExample = null;
-        bool hasSolidWidgetBackground = false;
-        double luminanceOverlayOpacity = 0;
-        Color luminanceOverlayColor = default;
+        Color effectiveAccentColor = App.Current.ThemeService?.GetEffectiveAccentColor()
+            ?? AccentColorHelper.DefaultAccentColor;
+        bool hasSolidWidgetBackground;
+        double luminanceOverlayOpacity;
+        Color luminanceOverlayColor;
         bool expandedNameVisible = false;
-        if (WidgetBackgroundCustomization.GetImageFileNameOverride(Config) is not null)
+        ListViewBase activeItemsView = GetActiveItemsView();
+        if (!WidgetAutoBackgroundContrastPolicy.TryResolveSurface(
+                Config,
+                settings,
+                Root.ActualTheme == ElementTheme.Dark,
+                effectiveAccentColor,
+                out WidgetAutoBackgroundSurface backgroundSurface))
         {
+            string reason = backgroundSurface.Support switch
+            {
+                WidgetAutoBackgroundSupport.WidgetImageOverride => "widget-image-override",
+                WidgetAutoBackgroundSupport.GlobalImageBackground => "global-image-background",
+                _ => $"unsupported-material:{settings.WidgetShell.WidgetMaterialType}"
+            };
             LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason=widget-image-override, realized={realized}",
-                "pass:widget-image-override");
+                $"pass skipped reason={reason}, realized={realized}",
+                $"pass:{reason}");
             ResetAdaptiveFilenameLabels();
             return;
         }
 
-        if (WidgetBackgroundCustomization.GetColorOverride(Config) is { } solidHex &&
-            AccentColorHelper.TryParseHex(solidHex, out Color widgetBackgroundColor))
-        {
-            hasSolidWidgetBackground = true;
-            luminanceOverlayColor = widgetBackgroundColor;
-            luminanceOverlayOpacity = 1;
-        }
-        else if (WidgetBackgroundCustomization.IsGlobalImageBackgroundActive(settings))
-        {
-            // Custom image backdrops are not represented by the desktop map.
-            LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason=global-image-background, realized={realized}",
-                "pass:global-image-background");
-            ResetAdaptiveFilenameLabels();
-            return;
-        }
-        else if (WindowsCompatibilityService.ResolveWidgetMaterialType(
-                     settings.WidgetShell.WidgetMaterialType) == SettingsService.WidgetMaterialTypeSolid)
-        {
-            var accent = App.Current.ThemeService?.GetEffectiveAccentColor()
-                ?? AccentColorHelper.DefaultAccentColor;
-            luminanceOverlayColor = WidgetMaterialVisualCalculator.BuildContentSolidSurfaceColor(
-                Root.ActualTheme == ElementTheme.Dark,
-                accent,
-                settings.WidgetShell.WidgetOpacity);
-            luminanceOverlayOpacity = luminanceOverlayColor.A / 255d;
-            hasSolidWidgetBackground = true;
-        }
-        else
-        {
-            // Acrylic and Mica do not expose a stable, known color overlay.
-            LogAdaptiveContrastDiagnostic(
-                $"pass skipped reason=unsupported-material material={settings.WidgetShell.WidgetMaterialType}, " +
-                $"realized={realized}",
-                $"pass:unsupported-material:{settings.WidgetShell.WidgetMaterialType}");
-            ResetAdaptiveFilenameLabels();
-            return;
-        }
+        hasSolidWidgetBackground = backgroundSurface.HasSolidWidgetBackground;
+        luminanceOverlayOpacity = backgroundSurface.OverlayOpacity;
+        luminanceOverlayColor = backgroundSurface.OverlayColor;
 
         foreach (Border border in _itemSurfaces.ToArray())
         {
@@ -246,12 +424,13 @@ public sealed partial class FileSurfaceContent
             expandedNameVisible = NameExpansionOverlay.Visibility == Visibility.Visible &&
                 ReferenceEquals(_nameExpansionNameText, name);
             TextBlock sampledName = expandedNameVisible ? NameExpansionText : name;
-            FrameworkElement samplingViewport = expandedNameVisible &&
-                NameExpansionOverlay.Parent is FrameworkElement expansionHost
-                    ? expansionHost
-                    : FileItemsViewport;
             if (sampledName.Visibility != Visibility.Visible ||
-                !TryGetVisiblePhysicalBounds(sampledName, samplingViewport, out WallpaperContrastRect screenBounds))
+                !TryGetAdaptiveNameBounds(
+                    surface,
+                    item,
+                    sampledName,
+                    expandedNameVisible,
+                    out WallpaperContrastRect screenBounds))
             {
                 skippedBounds++;
                 ClearAdaptiveFilenameChoice(surface);
@@ -260,12 +439,16 @@ public sealed partial class FileSurfaceContent
 
             eligible++;
 
-            Color selectionOverlayColor = expandedNameVisible
-                ? FileItemSurfaceStyleCache.GetNeutralStateLayer(
-                    Root.ActualTheme == ElementTheme.Dark,
-                    FileItemSurfaceVisualState.Normal,
-                    isSelected: true)
-                : default;
+            bool isSelected = expandedNameVisible || activeItemsView.SelectedItems.Contains(item);
+            bool isDropTarget = ReferenceEquals(border, _folderDropTarget) ||
+                ReferenceEquals(border, _launchDropTarget);
+            FileItemSurfaceVisualState visualState = isDropTarget
+                ? FileItemSurfaceVisualState.Hover
+                : surface.VisualState;
+            Color selectionOverlayColor = FileItemSurfaceStyleCache.GetNeutralStateLayer(
+                Root.ActualTheme == ElementTheme.Dark,
+                expandedNameVisible ? FileItemSurfaceVisualState.Normal : visualState,
+                isSelected);
             double selectionOverlayOpacity = selectionOverlayColor.A / 255d;
 
             double wallpaperLuminance = 0;
@@ -342,7 +525,9 @@ public sealed partial class FileSurfaceContent
             bool? previousWhite = _adaptiveNameChoices.TryGetValue(
                 surface,
                 out AdaptiveNameSampleState previous) &&
-                previous.ThresholdPercent.Equals(thresholdPercent)
+                previous.ThresholdPercent.Equals(thresholdPercent) &&
+                previous.SelectionOverlayColor.Equals(selectionOverlayColor) &&
+                previous.SelectionOverlayOpacity.Equals(selectionOverlayOpacity)
                     ? previous.PreferWhite
                     : null;
             bool preferWhite = WallpaperContrastPolicy.PreferWhite(
@@ -417,37 +602,106 @@ public sealed partial class FileSurfaceContent
         App.Log($"[WallpaperContrast] surface={GetHashCode():X}, {details}");
     }
 
-    private bool TryGetVisiblePhysicalBounds(
-        FrameworkElement element,
-        FrameworkElement viewport,
+    private bool TryGetAdaptiveNameBounds(
+        FileItemSurface surface,
+        WidgetItem item,
+        TextBlock sampledName,
+        bool isExpanded,
         out WallpaperContrastRect screenBounds)
     {
         screenBounds = default;
-        if (element.ActualWidth <= 0 || element.ActualHeight <= 0 ||
-            viewport.ActualWidth <= 0 || viewport.ActualHeight <= 0)
+        if (!isExpanded && !IsSurfaceInMainItemsView(surface))
         {
             return false;
         }
 
-        try
+        WallpaperContrastRect? localBounds;
+        if (isExpanded)
         {
-            Windows.Foundation.Rect localBounds = new(
-                0,
-                0,
-                element.ActualWidth,
-                element.ActualHeight);
-            Windows.Foundation.Rect viewportBounds = new(
-                0,
-                0,
-                viewport.ActualWidth,
-                viewport.ActualHeight);
-            Windows.Foundation.Rect nameInRoot = element.TransformToVisual(null)
-                .TransformBounds(localBounds);
-            Windows.Foundation.Rect viewportInRoot = viewport.TransformToVisual(null)
-                .TransformBounds(viewportBounds);
-            Windows.Foundation.Rect visible = Intersect(nameInRoot, viewportInRoot);
-            if (visible.Width <= 0 || visible.Height <= 0) return false;
+            if (!ReferenceEquals(_expandedAdaptiveLabel, sampledName) ||
+                _expandedAdaptiveBounds is null)
+            {
+                if (!TryMeasureElementBoundsInViewport(sampledName, out WallpaperContrastRect measured))
+                {
+                    return false;
+                }
 
+                _expandedAdaptiveLabel = sampledName;
+                _expandedAdaptiveBounds = measured;
+            }
+
+            localBounds = _expandedAdaptiveBounds;
+        }
+        else if (_adaptiveRepositionRefreshTimer is not null)
+        {
+            // RepositionThemeTransition moves realized visuals between their
+            // final grid/list slots. Follow those compositor transforms only
+            // while this bounded animation window is active; settled items
+            // return to their cached row/column geometry immediately after.
+            if (!TryMeasureElementBoundsInViewport(sampledName, out WallpaperContrastRect movingBounds))
+            {
+                return false;
+            }
+
+            localBounds = movingBounds;
+        }
+        else
+        {
+            if (!TryGetCachedNameGeometry(surface, item, sampledName, out AdaptiveNameGeometry geometry))
+            {
+                return false;
+            }
+
+            ScrollViewer? scrollViewer = GetAdaptiveContrastScrollViewer(geometry.IsIcon);
+            double horizontalOffset = scrollViewer?.HorizontalOffset ?? 0;
+            double verticalOffset = scrollViewer?.VerticalOffset ?? 0;
+            if (geometry.IsIcon)
+            {
+                double viewportWidth = scrollViewer?.ViewportWidth > 0
+                    ? scrollViewer.ViewportWidth
+                    : ItemsGrid.ActualWidth;
+                int columns = ResolveAdaptiveGridColumnCount(viewportWidth);
+                if (!TryGetAdaptiveGridOrigin(out Windows.Foundation.Point gridOrigin))
+                {
+                    return false;
+                }
+
+                Thickness margin = ViewModel.IconTileMargin;
+                localBounds = WallpaperContrastGeometry.GetGridTextBounds(
+                    geometry.Index,
+                    columns,
+                    ViewModel.IconCellWidth,
+                    ViewModel.IconCellHeight,
+                    margin.Left,
+                    margin.Top,
+                    geometry.LocalTextBounds,
+                    gridOrigin.X,
+                    gridOrigin.Y,
+                    horizontalOffset,
+                    verticalOffset,
+                    FileItemsViewport.ActualWidth,
+                    FileItemsViewport.ActualHeight);
+            }
+            else
+            {
+                localBounds = WallpaperContrastGeometry.GetScrolledListTextBounds(
+                    geometry.LocalTextBounds,
+                    geometry.MeasuredHorizontalOffset,
+                    geometry.MeasuredVerticalOffset,
+                    horizontalOffset,
+                    verticalOffset,
+                    FileItemsViewport.ActualWidth,
+                    FileItemsViewport.ActualHeight);
+            }
+        }
+
+        if (localBounds is null || localBounds.Value.Width <= 0 || localBounds.Value.Height <= 0)
+        {
+            return false;
+        }
+
+        if (!_adaptiveScreenTransformValid)
+        {
             var clientOrigin = default(Win32Helper.POINT);
             if (!Win32Helper.ClientToScreen(_hostWindowHandle, ref clientOrigin))
             {
@@ -456,9 +710,10 @@ public sealed partial class FileSurfaceContent
                     "bounds-client-to-screen-failed");
                 return false;
             }
+
             double scale = Win32Helper.GetDpiScaleForWindow(
                 _hostWindowHandle,
-                viewport.XamlRoot);
+                FileItemsViewport.XamlRoot);
             if (!double.IsFinite(scale) || scale <= 0)
             {
                 LogAdaptiveContrastDiagnostic(
@@ -467,34 +722,282 @@ public sealed partial class FileSurfaceContent
                 return false;
             }
 
-            screenBounds = new WallpaperContrastRect(
-                clientOrigin.X + (visible.X * scale),
-                clientOrigin.Y + (visible.Y * scale),
-                clientOrigin.X + (visible.X + visible.Width) * scale,
-                clientOrigin.Y + (visible.Y + visible.Height) * scale);
-            return screenBounds.Width > 0 && screenBounds.Height > 0;
+            _adaptiveClientOrigin = clientOrigin;
+            _adaptiveDpiScale = scale;
+            _adaptiveScreenTransformValid = true;
+        }
+
+        if (!_adaptiveViewportOriginValid &&
+            !TryGetAdaptiveViewportOriginInRoot(out _adaptiveViewportOriginInRoot))
+        {
+            return false;
+        }
+
+        screenBounds = WallpaperContrastGeometry.ToScreen(
+            localBounds.Value,
+            _adaptiveViewportOriginInRoot.X,
+            _adaptiveViewportOriginInRoot.Y,
+            _adaptiveClientOrigin.X,
+            _adaptiveClientOrigin.Y,
+            _adaptiveDpiScale);
+        return screenBounds.Width > 0 && screenBounds.Height > 0;
+    }
+
+    private bool TryGetAdaptiveViewportOriginInRoot(out Windows.Foundation.Point origin)
+    {
+        origin = default;
+        UIElement? root = FileItemsViewport.XamlRoot?.Content;
+        if (root is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            origin = FileItemsViewport.TransformToVisual(root).TransformPoint(default);
+            _adaptiveViewportOriginInRoot = origin;
+            _adaptiveViewportOriginValid = true;
+            return true;
         }
         catch (Exception ex)
         {
             LogAdaptiveContrastDiagnostic(
-                $"visible-bounds transform failed exception={ex.GetType().Name}/" +
+                $"viewport-root-offset transform failed exception={ex.GetType().Name}/" +
                 $"0x{unchecked((uint)ex.HResult):X8}",
-                $"bounds-transform:{ex.GetType().Name}:{ex.HResult}");
+                $"viewport-root-offset-transform:{ex.GetType().Name}:{ex.HResult}");
             return false;
         }
     }
 
-    private static Windows.Foundation.Rect Intersect(
-        Windows.Foundation.Rect left,
-        Windows.Foundation.Rect right)
+    private bool TryGetCachedNameGeometry(
+        FileItemSurface surface,
+        WidgetItem item,
+        TextBlock label,
+        out AdaptiveNameGeometry geometry)
     {
-        double x = Math.Max(left.X, right.X);
-        double y = Math.Max(left.Y, right.Y);
-        double rightEdge = Math.Min(left.X + left.Width, right.X + right.Width);
-        double bottomEdge = Math.Min(left.Y + left.Height, right.Y + right.Height);
-        return rightEdge <= x || bottomEdge <= y
-            ? new Windows.Foundation.Rect()
-            : new Windows.Foundation.Rect(x, y, rightEdge - x, bottomEdge - y);
+        bool isIcon = surface.Mode == FileItemSurfaceMode.Icon;
+        if (!_adaptiveNameGeometry.TryGetOrMeasure(
+                surface,
+                cached => ReferenceEquals(cached.Item, item) &&
+                    ReferenceEquals(cached.Label, label) &&
+                    cached.IsIcon == isIcon,
+                () =>
+                {
+                    bool measured = TryMeasureAdaptiveNameGeometry(
+                        surface,
+                        item,
+                        label,
+                        isIcon,
+                        out AdaptiveNameGeometry result);
+                    return (measured, result);
+                },
+                out geometry))
+        {
+            return false;
+        }
+
+        if (isIcon)
+        {
+            EnsureAdaptiveItemIndexes();
+            if (!_adaptiveItemIndexes.TryGetValue(item, out int currentIndex))
+            {
+                _adaptiveNameGeometry.Remove(surface);
+                geometry = default;
+                return false;
+            }
+
+            if (geometry.Index != currentIndex)
+            {
+                geometry = geometry with { Index = currentIndex };
+                _adaptiveNameGeometry.Set(surface, geometry);
+            }
+        }
+
+        return true;
+    }
+
+    private bool TryMeasureAdaptiveNameGeometry(
+        FileItemSurface surface,
+        WidgetItem item,
+        TextBlock label,
+        bool isIcon,
+        out AdaptiveNameGeometry geometry)
+    {
+        if (label.ActualWidth <= 0 || label.ActualHeight <= 0)
+        {
+            geometry = default;
+            return false;
+        }
+
+        WallpaperContrastRect localBounds;
+        double measuredHorizontalOffset = 0;
+        double measuredVerticalOffset = 0;
+        if (isIcon)
+        {
+            Windows.Foundation.Rect bounds;
+            try
+            {
+                bounds = label.TransformToVisual(surface)
+                    .TransformBounds(new Windows.Foundation.Rect(0, 0, label.ActualWidth, label.ActualHeight));
+            }
+            catch (Exception ex)
+            {
+                LogAdaptiveContrastDiagnostic(
+                    $"item-local-bounds transform failed exception={ex.GetType().Name}/" +
+                    $"0x{unchecked((uint)ex.HResult):X8}",
+                    $"item-local-bounds-transform:{ex.GetType().Name}:{ex.HResult}");
+                geometry = default;
+                return false;
+            }
+            localBounds = new WallpaperContrastRect(
+                bounds.X,
+                bounds.Y,
+                bounds.X + bounds.Width,
+                bounds.Y + bounds.Height);
+            EnsureAdaptiveItemIndexes();
+            if (!_adaptiveItemIndexes.TryGetValue(item, out int index))
+            {
+                geometry = default;
+                return false;
+            }
+
+            geometry = new AdaptiveNameGeometry(
+                item,
+                label,
+                isIcon,
+                index,
+                localBounds,
+                measuredHorizontalOffset,
+                measuredVerticalOffset);
+        }
+        else
+        {
+            if (!TryMeasureElementBoundsInViewport(label, out localBounds))
+            {
+                geometry = default;
+                return false;
+            }
+
+            ScrollViewer? scrollViewer = GetAdaptiveContrastScrollViewer(isIcon: false);
+            measuredHorizontalOffset = scrollViewer?.HorizontalOffset ?? 0;
+            measuredVerticalOffset = scrollViewer?.VerticalOffset ?? 0;
+            geometry = new AdaptiveNameGeometry(
+                item,
+                label,
+                isIcon,
+                -1,
+                localBounds,
+                measuredHorizontalOffset,
+                measuredVerticalOffset);
+        }
+
+        return true;
+    }
+
+    private bool TryMeasureElementBoundsInViewport(
+        FrameworkElement element,
+        out WallpaperContrastRect bounds)
+    {
+        bounds = default;
+        if (element.ActualWidth <= 0 || element.ActualHeight <= 0 ||
+            FileItemsViewport.ActualWidth <= 0 || FileItemsViewport.ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            Windows.Foundation.Rect transformed = element.TransformToVisual(FileItemsViewport)
+                .TransformBounds(new Windows.Foundation.Rect(0, 0, element.ActualWidth, element.ActualHeight));
+            bounds = new WallpaperContrastRect(
+                transformed.X,
+                transformed.Y,
+                transformed.X + transformed.Width,
+                transformed.Y + transformed.Height);
+            return bounds.Width > 0 && bounds.Height > 0;
+        }
+        catch (Exception ex)
+        {
+            LogAdaptiveContrastDiagnostic(
+                $"local-bounds transform failed exception={ex.GetType().Name}/" +
+                $"0x{unchecked((uint)ex.HResult):X8}",
+                $"local-bounds-transform:{ex.GetType().Name}:{ex.HResult}");
+            return false;
+        }
+    }
+
+    private ScrollViewer? GetAdaptiveContrastScrollViewer(bool isIcon) =>
+        isIcon
+            ? GetRenderWindowScrollViewer(ItemsGrid)
+            : GetRenderWindowScrollViewer(ItemsList);
+
+    private int ResolveAdaptiveGridColumnCount(double viewportWidth)
+    {
+        double width = ItemsGrid.ItemsPanelRoot is ItemsWrapGrid panel && panel.ActualWidth > 0
+            ? Math.Min(panel.ActualWidth, viewportWidth > 0 ? viewportWidth : panel.ActualWidth)
+            : viewportWidth;
+        return ViewModel.IconCellWidth > 0 && width > 0
+            ? Math.Max(1, (int)Math.Floor((width + 0.01) / ViewModel.IconCellWidth))
+            : 1;
+    }
+
+    private bool TryGetAdaptiveGridOrigin(out Windows.Foundation.Point origin)
+    {
+        origin = default;
+        if (_adaptiveGridOriginValid)
+        {
+            origin = _adaptiveGridOriginInViewport;
+            return true;
+        }
+
+        try
+        {
+            _adaptiveGridOriginInViewport = ItemsGrid.TransformToVisual(FileItemsViewport)
+                .TransformPoint(default);
+            _adaptiveGridOriginValid = true;
+            origin = _adaptiveGridOriginInViewport;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogAdaptiveContrastDiagnostic(
+                $"grid-origin transform failed exception={ex.GetType().Name}/" +
+                $"0x{unchecked((uint)ex.HResult):X8}",
+                $"grid-origin-transform:{ex.GetType().Name}:{ex.HResult}");
+            return false;
+        }
+    }
+
+    private void EnsureAdaptiveItemIndexes()
+    {
+        if (!_adaptiveItemIndexesDirty)
+        {
+            return;
+        }
+
+        _adaptiveItemIndexes.Clear();
+        for (int index = 0; index < ViewModel.RenderedItems.Count; index++)
+        {
+            _adaptiveItemIndexes[ViewModel.RenderedItems[index]] = index;
+        }
+
+        _adaptiveItemIndexesDirty = false;
+    }
+
+    private bool IsSurfaceInMainItemsView(FileItemSurface surface)
+    {
+        DependencyObject? current = surface;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, ItemsGrid) || ReferenceEquals(current, ItemsList))
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private void EnsureContrastAccessibilityWatcher()
@@ -520,7 +1023,7 @@ public sealed partial class FileSurfaceContent
         AccessibilitySettings sender,
         object args)
     {
-        if (!DispatcherQueue.TryEnqueue(UpdateAdaptiveFilenameContrast))
+        if (!DispatcherQueue.TryEnqueue(() => UpdateAdaptiveFilenameContrast()))
         {
             App.LogVerbose("[WallpaperContrast] Could not queue accessibility refresh.");
         }
@@ -536,13 +1039,9 @@ public sealed partial class FileSurfaceContent
 
     private void StopAdaptiveFilenameContrast(bool clearLabels)
     {
-        if (_adaptiveContrastTimer is not null)
-        {
-            _adaptiveContrastTimer.Stop();
-            _adaptiveContrastTimer.Tick -= AdaptiveContrastTimer_Tick;
-            _adaptiveContrastTimer = null;
-        }
-
+        StopAdaptiveRepositionRefresh();
+        _wallpaperSnapshotSubscription?.Dispose();
+        _wallpaperSnapshotSubscription = null;
         _wallpaperContrastLease?.Dispose();
         _wallpaperContrastLease = null;
         if (clearLabels) ResetAdaptiveFilenameLabels();
@@ -585,4 +1084,13 @@ public sealed partial class FileSurfaceContent
         double SelectionOverlayOpacity,
         double ThresholdPercent,
         bool PreferWhite);
+
+    private readonly record struct AdaptiveNameGeometry(
+        WidgetItem Item,
+        TextBlock Label,
+        bool IsIcon,
+        int Index,
+        WallpaperContrastRect LocalTextBounds,
+        double MeasuredHorizontalOffset,
+        double MeasuredVerticalOffset);
 }

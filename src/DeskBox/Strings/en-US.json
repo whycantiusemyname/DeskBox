@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "Full window",
   "Settings.WallpaperCapture.Method.LegacyWindow": "Traditional window",
   "Settings.WallpaperCapture.RefreshInterval.Title": "Wallpaper refresh interval (seconds)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "How often to refresh the wallpaper sample. Choose a value from 10 to 3600 seconds.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "How often to refresh the wallpaper sample. Choose a value from 1 to 3600 seconds.",
   "Settings.WidgetForeground.CustomColor.Title": "Custom foreground color",
   "Settings.WidgetForeground.CustomColor.Description": "Set the color of widget text and monochrome controls; no automatic contrast adjustment.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "What if the color is hard to read?",

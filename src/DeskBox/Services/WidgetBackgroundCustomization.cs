@@ -5,6 +5,14 @@ using Windows.UI;
 
 namespace DeskBox.Services;
 
+internal enum EffectiveWidgetBackgroundLayer
+{
+    WidgetImageOverride,
+    GlobalImage,
+    PerWidgetColor,
+    Material
+}
+
 /// <summary>
 /// Normalizes and resolves the per-widget custom background override.
 /// Values live in <see cref="WidgetConfig.Metadata"/> like the title-icon
@@ -159,6 +167,61 @@ public static class WidgetBackgroundCustomization
             (mode == WidgetBackgroundModeKinds.Panorama
                 ? WidgetTitleIconAssetStore.Current.ResolvePanoramaBackgroundPath(fileName)
                 : WidgetTitleIconAssetStore.Current.ResolveUnifiedBackgroundPath(fileName)) is not null;
+    }
+
+    /// <summary>
+    /// Resolves the background layer that the widget renderer will actually
+    /// show. A valid per-widget image takes precedence; otherwise an available
+    /// global image takes precedence over a per-widget color. Missing
+    /// per-widget images suppress the global image, matching the renderer's
+    /// per-widget override behavior, and can fall back to a configured color.
+    /// </summary>
+    internal static EffectiveWidgetBackgroundLayer ResolveEffectiveLayer(
+        WidgetConfig config,
+        AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        string? ownFile = GetImageFileNameOverride(config);
+        bool hasOwnImage = ownFile is not null &&
+            WidgetTitleIconAssetStore.Current.ResolveBackgroundPath(config.Id, ownFile) is not null;
+        bool hasColor = GetColorOverride(config) is not null;
+        bool hasGlobalImage = ownFile is null && IsGlobalImageBackgroundActive(settings);
+        return ResolveEffectiveLayer(
+            hasWidgetImageOverride: ownFile is not null,
+            hasWidgetImageAsset: hasOwnImage,
+            hasGlobalImage: hasGlobalImage,
+            hasWidgetColor: hasColor);
+    }
+
+    /// <summary>Pure priority resolver, exposed internally for regression tests.</summary>
+    internal static EffectiveWidgetBackgroundLayer ResolveEffectiveLayer(
+        bool hasWidgetImageOverride,
+        bool hasWidgetImageAsset,
+        bool hasGlobalImage,
+        bool hasWidgetColor)
+    {
+        if (hasWidgetImageOverride)
+        {
+            if (hasWidgetImageAsset)
+            {
+                return EffectiveWidgetBackgroundLayer.WidgetImageOverride;
+            }
+
+            return hasWidgetColor
+                ? EffectiveWidgetBackgroundLayer.PerWidgetColor
+                : EffectiveWidgetBackgroundLayer.Material;
+        }
+
+        if (hasGlobalImage)
+        {
+            return EffectiveWidgetBackgroundLayer.GlobalImage;
+        }
+
+        return hasWidgetColor
+            ? EffectiveWidgetBackgroundLayer.PerWidgetColor
+            : EffectiveWidgetBackgroundLayer.Material;
     }
 
     /// <summary>Resolved scrim strength across both override layers.</summary>

@@ -190,6 +190,12 @@ public sealed partial class FileSurfaceContent
                 : Windows.UI.Color.FromArgb(0x72, 0x00, 0x00, 0x00));
 
         overlay.Visibility = Visibility.Visible;
+        if (!isPopoverView)
+        {
+            _expandedAdaptiveLabel = null;
+            _expandedAdaptiveBounds = null;
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+        }
         PlayNameExpansionFadeIn(overlay);
 
         // The overlay now owns this tile's selected look: blank the tile's
@@ -222,10 +228,16 @@ public sealed partial class FileSurfaceContent
             if (!isPopoverView)
             {
                 NameExpansionText.ClearValue(TextBlock.ForegroundProperty);
+                _expandedAdaptiveLabel = null;
+                _expandedAdaptiveBounds = null;
             }
         }
 
         RestoreNameExpansionSuppression();
+        if (!isPopoverView)
+        {
+            QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
+        }
     }
 
     private void RestoreNameExpansionSuppression()
@@ -371,6 +383,12 @@ public sealed partial class FileSurfaceContent
             // They must already work during first realization and remain
             // connected when WinUI recycles an item without another Loaded.
             ApplyOpeningStateToSurface(surface);
+            surface.SizeChanged -= ItemSurface_SizeChangedForContrast;
+            surface.SizeChanged += ItemSurface_SizeChangedForContrast;
+            TextBlock nameText = surface.ItemNameText;
+            nameText.SizeChanged -= ItemNameText_SizeChangedForContrast;
+            nameText.SizeChanged += ItemNameText_SizeChangedForContrast;
+            InvalidateAdaptiveNameGeometry(surface);
         }
 
         if (FileItemSurface.TryGetInteractiveBorder(sender) is { } border)
@@ -382,6 +400,8 @@ public sealed partial class FileSurfaceContent
                 FileItemSurface.FindOwner(border)?.VisualState ??
                     FileItemSurfaceVisualState.Normal);
         }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
     }
 
     private void ItemSurface_Unloaded(
@@ -400,9 +420,14 @@ public sealed partial class FileSurfaceContent
             _itemSurfaces.Remove(border);
             if (FileItemSurface.FindOwner(border) is { } surface)
             {
+                surface.SizeChanged -= ItemSurface_SizeChangedForContrast;
+                surface.ItemNameText.SizeChanged -= ItemNameText_SizeChangedForContrast;
+                InvalidateAdaptiveNameGeometry(surface);
                 ClearAdaptiveFilenameChoice(surface);
             }
         }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
     }
 
     private void ItemSurface_VisualStateChanged(
@@ -418,6 +443,8 @@ public sealed partial class FileSurfaceContent
         {
             ApplyItemSurfaceVisual(border, e.State);
         }
+
+        QueueAdaptiveFilenameContrastSample(invalidateGeometry: false);
     }
 
     private void ItemSurface_PointerPressed(

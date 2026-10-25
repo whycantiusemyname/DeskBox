@@ -2582,7 +2582,7 @@
   "Settings.WallpaperCapture.Method.FullWindow": "نافذة كاملة",
   "Settings.WallpaperCapture.Method.LegacyWindow": "نافذة تقليدية",
   "Settings.WallpaperCapture.RefreshInterval.Title": "فاصل تحديث الخلفية (بالثواني)",
-  "Settings.WallpaperCapture.RefreshInterval.Description": "عدد الثواني بين تحديثات عينة الخلفية. اختر قيمة بين 10 و3600 ثانية.",
+  "Settings.WallpaperCapture.RefreshInterval.Description": "عدد الثواني بين تحديثات عينة الخلفية. اختر قيمة بين 1 و3600 ثانية.",
   "Settings.WidgetForeground.CustomColor.Title": "لون نص مخصص",
   "Settings.WidgetForeground.CustomColor.Description": "عيّن لون نص الأداة وعناصر التحكم أحادية اللون؛ دون أي ضبط تباين تلقائي.",
   "Settings.WidgetForeground.CustomColor.InfoTip.Title": "ماذا لو كان اللون صعب القراءة؟",

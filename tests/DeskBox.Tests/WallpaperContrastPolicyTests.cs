@@ -1,4 +1,5 @@
 using DeskBox.Contracts;
+using DeskBox.Controls;
 using DeskBox.Services;
 
 namespace DeskBox.Tests;
@@ -24,6 +25,33 @@ public sealed class WallpaperContrastPolicyTests
             foregroundStillApplied: true,
             cachedThresholdPercent: 30,
             currentThresholdPercent: 30));
+    }
+
+    [Fact]
+    public void SelectedTileLayer_RecomputesForegroundForTheCompositedBackground()
+    {
+        double threshold = WidgetForegroundContrastThresholdKinds.DefaultLuminance;
+        double unselectedLuminance = 0.18;
+        Windows.UI.Color selectedLayer = FileItemSurfaceStyleCache.GetNeutralStateLayer(
+            isDark: false,
+            state: FileItemSurfaceVisualState.Normal,
+            isSelected: true);
+        double selectedLuminance = WallpaperContrastPolicy.BlendLuminance(
+            unselectedLuminance,
+            selectedLayer.R,
+            selectedLayer.G,
+            selectedLayer.B,
+            selectedLayer.A / 255d);
+
+        Assert.False(WallpaperContrastPolicy.PreferWhite(
+            unselectedLuminance,
+            previousWhite: null,
+            threshold: threshold));
+        Assert.True(selectedLuminance < threshold);
+        Assert.True(WallpaperContrastPolicy.PreferWhite(
+            selectedLuminance,
+            previousWhite: null,
+            threshold: threshold));
     }
 
     [Fact]
