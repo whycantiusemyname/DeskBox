@@ -32,6 +32,7 @@ public abstract partial class WidgetWindowBase
     private string? _lastAutoCaptureSignature;
     private bool _autoForegroundRefreshQueued;
     private bool _autoForegroundSampleQueued;
+    private bool _autoForegroundGeometryRefreshQueued;
     private bool _autoForegroundLocalGeometryInvalidationPending;
     private Win32Helper.SubclassProc? _autoForegroundGeometrySubclassProc;
     private bool _isAutoForegroundGeometrySubclassInstalled;
