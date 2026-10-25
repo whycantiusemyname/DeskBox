@@ -59,6 +59,19 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
     }
 
     [Fact]
+    public void ExistingWidgetImageOverrideWinsTheSharedPriorityResolver()
+    {
+        EffectiveWidgetBackgroundLayer layer =
+            WidgetBackgroundCustomization.ResolveEffectiveLayer(
+                hasWidgetImageOverride: true,
+                hasWidgetImageAsset: true,
+                hasGlobalImage: true,
+                hasWidgetColor: true);
+
+        Assert.Equal(EffectiveWidgetBackgroundLayer.WidgetImageOverride, layer);
+    }
+
+    [Fact]
     public void RendererAndAutomaticContrastUseTheSharedEffectiveLayer()
     {
         string renderer = Read("src/DeskBox/Views/WidgetWindowBase.TitleIconCustomization.cs");
@@ -71,26 +84,16 @@ public sealed class WidgetAutoBackgroundForegroundContractTests
     }
 
     [Fact]
-    public void WidgetImageOverride_DoesNotSampleTheWallpaper()
+    public void MissingWidgetImageOverride_ResolvesToTheMaterialLayer()
     {
-        var config = new WidgetConfig
-        {
-            Metadata =
-            {
-                [WidgetBackgroundCustomization.ImageMetadataKey] = "background.png"
-            }
-        };
+        EffectiveWidgetBackgroundLayer layer =
+            WidgetBackgroundCustomization.ResolveEffectiveLayer(
+                hasWidgetImageOverride: true,
+                hasWidgetImageAsset: false,
+                hasGlobalImage: false,
+                hasWidgetColor: false);
 
-        bool supported = WidgetAutoBackgroundContrastPolicy.TryResolveSurface(
-            config,
-            new AppSettings(),
-            isDark: false,
-            effectiveAccentColor: null,
-            out WidgetAutoBackgroundSurface surface);
-
-        Assert.False(supported);
-        Assert.Equal(WidgetAutoBackgroundSupport.WidgetImageOverride, surface.Support);
-        Assert.False(surface.HasSolidWidgetBackground);
+        Assert.Equal(EffectiveWidgetBackgroundLayer.Material, layer);
     }
 
     [Fact]

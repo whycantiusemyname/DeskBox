@@ -67,9 +67,13 @@ public sealed class WallpaperCaptureSettingsTests : IDisposable
 
         coordinator.SetWallpaperCaptureSource("SystemWallpaper");
         coordinator.SetWallpaperHostCaptureMethod("FullWindow");
-        coordinator.SetWallpaperCaptureRefreshIntervalSeconds(5);
+        coordinator.SetWallpaperCaptureRefreshIntervalSeconds(0);
         Assert.Equal(
             new AppearanceWallpaperCaptureSettings("SystemWallpaper", "FullWindow", 1),
+            coordinator.ReadWallpaperCapture());
+        coordinator.SetWallpaperCaptureRefreshIntervalSeconds(5);
+        Assert.Equal(
+            new AppearanceWallpaperCaptureSettings("SystemWallpaper", "FullWindow", 5),
             coordinator.ReadWallpaperCapture());
 
         coordinator.SetWallpaperCaptureSource("DesktopHost");
