@@ -35,7 +35,7 @@ internal sealed class WallpaperContrastSurfaceCache<TSurface, TOwner>
         out TOwner owner,
         out bool inMainView)
     {
-        if (_entries.TryGetValue(surface, out SurfaceEntry entry))
+        if (_entries.TryGetValue(surface, out SurfaceEntry? entry) && entry is not null)
         {
             owner = entry.Owner;
             inMainView = entry.InMainView;
